@@ -1,0 +1,1542 @@
+<!--
+SPDX-License-Identifier: 0BSD
+
+Copyright (C) 2026 Matteo Parolini
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+-->
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#090b11">
+  <title>Scoreboard</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090b11;
+      --panel: #11151f;
+      --panel-2: #191f2c;
+      --line: #2b3342;
+      --text: #f7f8fb;
+      --muted: #99a3b4;
+      --red: #ff3b4f;
+      --red-dark: #a70e29;
+      --blue: #28b7ff;
+      --blue-dark: #0870ae;
+      --gold: #ffc928;
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 8% -10%, rgba(255,59,79,.18), transparent 31rem),
+        radial-gradient(circle at 92% -10%, rgba(40,183,255,.16), transparent 31rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .app {
+      width: min(1180px, 100%);
+      min-height: 100dvh;
+      margin: 0 auto;
+      padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .topbar {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .x-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--gold);
+      border-radius: 11px;
+      color: var(--gold);
+      font-weight: 1000;
+      font-size: 23px;
+      transform: rotate(-5deg);
+      box-shadow: 0 0 20px rgba(255,201,40,.12);
+      overflow: hidden;
+    }
+    .x-mark img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+    .x-mark img[hidden], .x-mark span[hidden] { display: none; }
+    .brand-copy strong { display: block; letter-spacing: .08em; font-size: .96rem; }
+    .brand-copy span { color: var(--muted); font-size: .76rem; }
+
+    .toolbar { display: flex; gap: 7px; }
+    .icon-btn, .utility-btn {
+      border: 1px solid var(--line);
+      background: rgba(17,21,31,.86);
+      border-radius: 12px;
+      min-height: 42px;
+      padding: 0 13px;
+      cursor: pointer;
+      font-weight: 750;
+    }
+    .icon-btn { width: 44px; padding: 0; font-size: 1.1rem; }
+    .play-row { display: flex; justify-content: center; }
+    .play-btn {
+      width: min(440px, 100%);
+      min-height: 54px;
+      border-color: rgba(255,201,40,.7);
+      background: var(--gold);
+      color: #171208;
+      font-size: 1.08rem;
+      letter-spacing: .04em;
+    }
+    .play-btn:disabled { border-color: #3a3f49; background: #242832; color: #777f8c; cursor: default; }
+    button:active { transform: translateY(1px) scale(.99); }
+    button:focus-visible, input:focus-visible { outline: 3px solid rgba(255,201,40,.7); outline-offset: 2px; }
+
+    .status {
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(17,21,31,.76);
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 12px;
+      color: var(--muted);
+      font-size: .88rem;
+      text-align: center;
+    }
+    .status strong { color: var(--text); }
+    .status.finished { border-color: rgba(255,201,40,.65); color: var(--gold); }
+
+    .arena {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      gap: 9px;
+      flex: 1;
+    }
+
+    .player {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(155deg, rgba(25,31,44,.98), rgba(13,16,24,.98));
+      padding: clamp(14px, 2vw, 24px);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      box-shadow: 0 16px 45px rgba(0,0,0,.22);
+    }
+    .player::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 5px;
+      background: var(--accent);
+    }
+    .player.red { --accent: var(--red); --accent-dark: var(--red-dark); }
+    .player.blue { --accent: var(--blue); --accent-dark: var(--blue-dark); }
+
+    .player-head { text-align: center; min-width: 0; }
+    .player-name {
+      margin: 4px 0 0;
+      font-size: clamp(1.2rem, 3.5vw, 2rem);
+      font-weight: 900;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .deck-line {
+      min-height: 1.3rem;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: clamp(.72rem, 1.8vw, .84rem);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .score-wrap {
+      flex: 1;
+      min-height: 150px;
+      display: grid;
+      place-items: center;
+      padding: 6px 0;
+    }
+    .score {
+      font-size: clamp(7rem, 21vw, 15rem);
+      line-height: .82;
+      font-weight: 1000;
+      letter-spacing: -.08em;
+      margin-left: -.08em;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 8px 30px rgba(0,0,0,.35);
+    }
+
+    .finish-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+    .finish-btn {
+      min-height: clamp(68px, 9vw, 88px);
+      border: 1px solid #343d4e;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #232a39, #171c28);
+      padding: 10px 7px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 2px;
+    }
+    .finish-btn .points {
+      color: var(--text);
+      font-size: clamp(1rem, 2.5vw, 1.35rem);
+      line-height: 1;
+      font-weight: 900;
+    }
+    .finish-btn .label {
+      color: var(--accent);
+      font-weight: 1000;
+      font-size: clamp(1.25rem, 3.4vw, 1.85rem);
+      line-height: 1.05;
+      letter-spacing: .025em;
+    }
+    .finish-btn:hover { border-color: var(--accent); }
+    .finish-btn:disabled {
+      border-color: #353a44;
+      background: #1b1e25;
+      cursor: default;
+    }
+    .finish-btn:disabled .label, .finish-btn:disabled .points { color: #666d78; }
+    .foul-btn {
+      width: 100%;
+      min-height: 52px;
+      margin-top: 9px;
+      border: 1px solid color-mix(in srgb, var(--accent) 55%, #343d4e);
+      border-radius: 13px;
+      background: linear-gradient(180deg, #292731, #1c1c24);
+      padding: 7px 12px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .foul-btn .label { color: var(--accent); font-weight: 1000; letter-spacing: .05em; }
+    .foul-btn .foul-count { color: var(--muted); font-size: .78rem; font-weight: 850; }
+    .foul-btn:disabled { border-color: #353a44; background: #1b1e25; cursor: default; }
+    .foul-btn:disabled .label, .foul-btn:disabled .foul-count { color: #666d78; }
+    .draw-column { display: flex; align-self: stretch; }
+    .draw-btn {
+      width: clamp(54px, 6.5vw, 76px);
+      min-height: 180px;
+      border: 1px solid rgba(255,201,40,.55);
+      border-radius: 13px;
+      background: linear-gradient(180deg, #302c20, #211f1a);
+      padding: 12px 6px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 18px;
+    }
+    .draw-btn .label {
+      color: var(--gold);
+      font-weight: 1000;
+      font-size: .78rem;
+      line-height: 1.04;
+    }
+    .draw-btn .points { color: var(--text); font-size: 2.3rem; line-height: 1; font-weight: 1000; }
+    .draw-btn:disabled { border-color: #353a44; background: #1b1e25; cursor: default; }
+    .draw-btn:disabled .label, .draw-btn:disabled .points { color: #666d78; }
+    .simple-mode .finish-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .simple-mode .finish-btn { min-height: clamp(100px, 12vw, 150px); padding: 8px 3px; }
+    .simple-mode .finish-btn[data-finish="Xtreme Finish"] { order: 1; }
+    .simple-mode .finish-btn[data-finish="Burst Finish"] { order: 2; }
+    .simple-mode .finish-btn[data-finish="Spin Finish"] { order: 3; }
+    .simple-mode .finish-btn[data-finish="Over Finish"] { display: none; }
+    .simple-mode .finish-btn .label { display: none; }
+    .simple-mode .finish-btn .points {
+      color: var(--accent);
+      font-size: clamp(3.2rem, 9vw, 6.5rem);
+      line-height: 1;
+    }
+    .simple-mode .finish-btn:disabled .points { color: #666d78; }
+    .simple-mode .draw-btn { min-height: 180px; }
+    .simple-mode .draw-btn .label { display: none; }
+    .simple-mode .draw-btn .points { color: var(--gold); font-size: clamp(3rem, 7vw, 5.5rem); line-height: 1; }
+    .simple-mode .draw-btn:disabled .points { color: #666d78; }
+
+    .bottom {
+      display: grid;
+      grid-template-columns: auto minmax(180px, 1fr) auto;
+      gap: 9px;
+      align-items: stretch;
+    }
+    .history {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(17,21,31,.78);
+      padding: 9px 12px;
+      min-width: 0;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      overflow: hidden;
+    }
+    .history-label { color: var(--muted); font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; flex: 0 0 auto; }
+    .history-items { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+    .history-items::-webkit-scrollbar { display: none; }
+    .round-chip {
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+      padding: 5px 7px;
+      font-size: .73rem;
+      white-space: nowrap;
+    }
+    .round-chip.red { border-left: 3px solid var(--red); }
+    .round-chip.blue { border-left: 3px solid var(--blue); }
+    .empty-history { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+
+    dialog {
+      width: min(620px, calc(100% - 24px));
+      max-height: calc(100dvh - 24px);
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 19px;
+      background: #10141e;
+      color: var(--text);
+      box-shadow: 0 30px 100px rgba(0,0,0,.7);
+    }
+    dialog::backdrop { background: rgba(2,4,8,.78); backdrop-filter: blur(5px); }
+    .dialog-form { display: flex; flex-direction: column; max-height: calc(100dvh - 24px); }
+    .dialog-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px 12px; }
+    .dialog-head h2 { margin: 0; font-size: 1.25rem; }
+    .dialog-body { overflow-y: auto; padding: 6px 20px 18px; }
+    .dialog-actions { padding: 14px 20px max(14px, env(safe-area-inset-bottom)); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); }
+    .primary { border-color: transparent; background: var(--gold); color: #171208; }
+    .danger { border-color: rgba(255,77,95,.5); color: #ff7d8b; }
+    .push-left { margin-right: auto; }
+
+    .field { margin-top: 14px; }
+    .field label, .field-label { display: block; margin-bottom: 6px; color: #cbd1dc; font-size: .83rem; font-weight: 750; }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      min-height: 45px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #0a0d14;
+      color: var(--text);
+      padding: 9px 11px;
+    }
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .player-settings { border: 1px solid var(--line); border-radius: 14px; padding: 13px; margin-top: 14px; }
+    .player-settings.red { border-top: 3px solid var(--red); }
+    .player-settings.blue { border-top: 3px solid var(--blue); }
+    .player-settings h3 { margin: 0 0 4px; font-size: .95rem; }
+    .deck-inputs { display: grid; gap: 7px; }
+    .hint { color: var(--muted); font-size: .75rem; margin: 5px 0 0; }
+    .color-tools { display: flex; justify-content: center; margin: 14px 0 0; }
+    .color-tools .utility-btn { min-width: min(280px, 100%); }
+    .color-palette {
+      display: grid;
+      grid-template-columns: repeat(9, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .color-choice {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      min-height: 28px;
+      padding: 0;
+      border: 2px solid rgba(255,255,255,.2);
+      border-radius: 8px;
+      background: var(--choice-color);
+      cursor: pointer;
+    }
+    .color-choice.selected {
+      border-color: #fff;
+      box-shadow: 0 0 0 3px rgba(255,255,255,.22), 0 0 18px var(--choice-color);
+      transform: scale(1.08);
+    }
+    .color-choice:disabled {
+      opacity: .16;
+      filter: grayscale(1);
+      cursor: not-allowed;
+    }
+    .logo-settings {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+    .logo-preview {
+      width: 72px;
+      height: 72px;
+      border: 2px solid var(--gold);
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      color: var(--gold);
+      font-size: 2rem;
+      font-weight: 1000;
+    }
+    .logo-preview img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+    .logo-preview img[hidden], .logo-preview span[hidden] { display: none; }
+    .logo-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+    .file-btn { display: inline-flex; align-items: center; justify-content: center; }
+    .file-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .logo-status { min-height: 1em; color: var(--muted); font-size: .72rem; margin-top: 6px; }
+    .advanced-access { display: flex; justify-content: center; margin-top: 16px; }
+    .advanced-access .utility-btn { width: min(360px, 100%); }
+    .advanced-settings {
+      margin-top: 12px;
+      border: 1px solid #465064;
+      border-radius: 14px;
+      background: rgba(10,13,20,.7);
+      padding: 14px;
+    }
+    .advanced-settings[hidden] { display: none; }
+    .advanced-settings h3 { margin: 0; font-size: 1rem; }
+    .toggle-field {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      margin: 0 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel-2);
+      padding: 11px 12px;
+      cursor: pointer;
+    }
+    .toggle-field input { width: 22px; height: 22px; flex: 0 0 auto; accent-color: var(--gold); }
+    .toggle-field strong { display: block; font-size: .9rem; }
+    .toggle-field small { display: block; margin-top: 2px; color: var(--muted); font-size: .72rem; }
+    .timing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+    .factory-reset { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .factory-reset .utility-btn { width: 100%; }
+
+    .session-dialog { width: min(780px, calc(100% - 24px)); }
+    .session-list { display: grid; gap: 12px; }
+    .session-empty { color: var(--muted); text-align: center; padding: 32px 12px; }
+    .session-game {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(10,13,20,.72);
+      overflow: hidden;
+    }
+    .session-game-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .session-game-head h3 { margin: 0; font-size: 1rem; }
+    .session-status { color: var(--muted); font-size: .75rem; font-weight: 850; text-transform: uppercase; letter-spacing: .06em; }
+    .session-status.complete { color: var(--gold); }
+    .session-score {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+      align-items: center;
+      gap: 10px;
+      padding: 13px 14px 8px;
+      font-weight: 900;
+    }
+    .session-score .p1 { text-align: right; }
+    .session-score .p2 { text-align: left; }
+    .session-score .p1, .session-score .p2 { min-width: 0; overflow-wrap: anywhere; }
+    .session-score .numbers { font-size: 1.35rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .session-rounds { display: grid; gap: 6px; padding: 6px 14px 14px; }
+    .session-round {
+      border-left: 4px solid var(--round-color);
+      border-radius: 7px;
+      background: var(--panel-2);
+      padding: 7px 9px;
+      font-size: .8rem;
+    }
+
+    .winner-card { text-align: center; padding: 28px 24px 24px; }
+    .winner-kicker { color: var(--gold); text-transform: uppercase; letter-spacing: .14em; font-size: .78rem; font-weight: 900; }
+    .winner-name { margin: 7px 0 2px; font-size: clamp(2rem, 10vw, 3.8rem); font-weight: 1000; overflow-wrap: anywhere; }
+    .winner-score { color: var(--muted); font-size: 1.05rem; }
+    .winner-actions { display: flex; justify-content: center; gap: 9px; margin-top: 22px; }
+
+    .countdown-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background:
+        radial-gradient(circle at center, rgba(255,201,40,.13), transparent 42%),
+        rgba(2,4,8,.94);
+      backdrop-filter: blur(8px);
+    }
+    .countdown-overlay[hidden] { display: none; }
+    .countdown-card {
+      width: min(680px, 100%);
+      min-height: min(64dvh, 520px);
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+    .countdown-ready {
+      width: min(540px, 100%);
+      display: grid;
+      gap: 16px;
+    }
+    .countdown-ready[hidden] { display: none; }
+    .countdown-start {
+      width: 100%;
+      min-height: 180px;
+      border: 2px solid var(--gold);
+      border-radius: 24px;
+      background: linear-gradient(155deg, #ffd84f, var(--gold));
+      color: #171208;
+      padding: 24px;
+      cursor: pointer;
+      font-size: clamp(1.35rem, 5vw, 2.3rem);
+      line-height: 1.12;
+      font-weight: 1000;
+      letter-spacing: .04em;
+      box-shadow: 0 18px 70px rgba(255,201,40,.2);
+    }
+    .auto-start-bar {
+      width: 100%;
+      height: 12px;
+      overflow: hidden;
+      border: 1px solid #49505d;
+      border-radius: 999px;
+      background: #171b23;
+    }
+    .auto-start-fill {
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #e8a900, var(--gold), #ffe785);
+      box-shadow: 0 0 18px rgba(255,201,40,.55);
+    }
+    .auto-start-fill.active { animation: fill-auto-start 10s linear forwards; }
+    @keyframes fill-auto-start { to { width: 100%; } }
+    .countdown-value {
+      font-size: clamp(5.5rem, 25vw, 14rem);
+      line-height: .9;
+      font-weight: 1000;
+      letter-spacing: -.05em;
+      color: var(--gold);
+      text-shadow: 0 0 55px rgba(255,201,40,.28);
+    }
+    .countdown-value.word { font-size: clamp(3.2rem, 14vw, 8rem); letter-spacing: -.035em; }
+    .countdown-value.round { font-size: clamp(3.4rem, 15vw, 8.5rem); letter-spacing: -.04em; }
+    .countdown-value.launch {
+      color: var(--text);
+      font-size: clamp(5rem, 22vw, 13rem);
+      text-shadow: 0 0 65px rgba(255,201,40,.7);
+    }
+
+    @media (max-width: 720px) {
+      .app { gap: 8px; padding-top: max(8px, env(safe-area-inset-top)); }
+      .brand-copy span { display: none; }
+      .arena { gap: 6px; }
+      .draw-btn { width: 46px; padding-inline: 3px; }
+      .player { padding: 11px 8px 9px; border-radius: 15px; }
+      .score-wrap { min-height: 125px; }
+      .finish-grid { grid-template-columns: 1fr; gap: 6px; }
+      .finish-btn { min-height: 58px; }
+      .finish-btn .points { font-size: .95rem; }
+      .finish-btn .label { font-size: 1.15rem; }
+      .bottom { grid-template-columns: auto 1fr auto; }
+      .utility-btn { padding: 0 10px; font-size: .8rem; }
+      .history-label { display: none; }
+      .settings-grid { grid-template-columns: 1fr; gap: 0; }
+      .timing-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 380px) {
+      .brand-copy strong { font-size: .78rem; }
+      .x-mark { width: 34px; height: 34px; }
+      .toolbar { gap: 5px; }
+      .icon-btn { width: 40px; min-height: 40px; }
+      .play-btn { min-height: 50px; font-size: .95rem; }
+      .status { font-size: .78rem; }
+      .player-name { font-size: 1rem; }
+      .score { font-size: 6.2rem; }
+      .finish-btn { min-height: 54px; padding: 6px 3px; }
+      .finish-btn .label { font-size: .66rem; }
+      .draw-btn { width: 40px; }
+    }
+
+    @media (orientation: landscape) and (max-height: 600px) {
+      .app { gap: 7px; }
+      .topbar { min-height: 38px; }
+      .x-mark { width: 34px; height: 34px; }
+      .status { min-height: 34px; padding: 4px 10px; }
+      .player { padding: 10px 14px; }
+      .player-name { font-size: 1.2rem; }
+      .score-wrap { min-height: 74px; }
+      .score { font-size: min(19vh, 7rem); }
+      .finish-grid { grid-template-columns: repeat(4, 1fr); }
+      .finish-btn { min-height: 57px; padding: 5px 3px; }
+      .finish-btn .points { font-size: .85rem; }
+      .finish-btn .label { font-size: 1rem; }
+      .bottom { min-height: 38px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="x-mark" aria-hidden="true"><span id="defaultLogo">X</span><img id="customLogo" alt="" hidden></div>
+        <div class="brand-copy">
+          <strong>BATTLE SCORE</strong>
+          <span>Scoreboard</span>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button class="icon-btn" id="sessionHistoryBtn" type="button" title="Storico sessione" aria-label="Storico sessione">S</button>
+        <button class="icon-btn" id="fullscreenBtn" type="button" title="Schermo intero" aria-label="Schermo intero">F</button>
+        <button class="icon-btn" id="settingsBtn" type="button" title="Impostazioni" aria-label="Impostazioni">⚙</button>
+      </div>
+    </header>
+
+    <div class="status" id="status" aria-live="polite"></div>
+
+    <div class="play-row">
+      <button class="utility-btn play-btn" id="playBtn" type="button" title="Avvia il round">▶ PLAY</button>
+    </div>
+
+    <section class="arena" aria-label="Segnapunti">
+      <article class="player red" data-player="0">
+        <header class="player-head">
+          <h1 class="player-name" id="name0">Giocatore 1</h1>
+          <div class="deck-line" id="deck0"></div>
+        </header>
+        <div class="score-wrap"><div class="score" id="score0">0</div></div>
+        <div class="finish-grid">
+          <button class="finish-btn" data-player="0" data-points="1" data-finish="Spin Finish"><span class="label">SPIN</span><span class="points">1</span></button>
+          <button class="finish-btn" data-player="0" data-points="2" data-finish="Burst Finish"><span class="label">BURST</span><span class="points">2</span></button>
+          <button class="finish-btn" data-player="0" data-points="2" data-finish="Over Finish"><span class="label">OVER</span><span class="points">2</span></button>
+          <button class="finish-btn" data-player="0" data-points="3" data-finish="Xtreme Finish"><span class="label">XTREME</span><span class="points">3</span></button>
+        </div>
+        <button class="foul-btn" data-player="0" type="button"><span class="label">FALLO</span><span class="foul-count" id="foulCount0"></span></button>
+      </article>
+
+      <div class="draw-column">
+        <button class="draw-btn" id="drawBtn" type="button" aria-label="Pareggio, zero punti"><span class="label" aria-hidden="true">P<br>A<br>R<br>E<br>G<br>G<br>I<br>O</span><span class="points" aria-hidden="true">X</span></button>
+      </div>
+
+      <article class="player blue" data-player="1">
+        <header class="player-head">
+          <h1 class="player-name" id="name1">Giocatore 2</h1>
+          <div class="deck-line" id="deck1"></div>
+        </header>
+        <div class="score-wrap"><div class="score" id="score1">0</div></div>
+        <div class="finish-grid">
+          <button class="finish-btn" data-player="1" data-points="1" data-finish="Spin Finish"><span class="label">SPIN</span><span class="points">1</span></button>
+          <button class="finish-btn" data-player="1" data-points="2" data-finish="Burst Finish"><span class="label">BURST</span><span class="points">2</span></button>
+          <button class="finish-btn" data-player="1" data-points="2" data-finish="Over Finish"><span class="label">OVER</span><span class="points">2</span></button>
+          <button class="finish-btn" data-player="1" data-points="3" data-finish="Xtreme Finish"><span class="label">XTREME</span><span class="points">3</span></button>
+        </div>
+        <button class="foul-btn" data-player="1" type="button"><span class="label">FALLO</span><span class="foul-count" id="foulCount1"></span></button>
+      </article>
+    </section>
+
+    <footer class="bottom">
+      <button class="utility-btn" id="undoBtn" type="button">↶ Annulla</button>
+      <div class="history">
+        <span class="history-label">Round</span>
+        <div class="history-items" id="historyItems"></div>
+      </div>
+      <button class="utility-btn" id="newGameBtn" type="button">↻ Nuova</button>
+    </footer>
+  </main>
+
+  <dialog id="settingsDialog">
+    <form class="dialog-form" id="settingsForm">
+      <div class="dialog-head">
+        <h2>Impostazioni partita</h2>
+        <button class="icon-btn" id="closeSettings" type="button" aria-label="Chiudi">×</button>
+      </div>
+      <div class="dialog-body">
+        <div class="field">
+          <label for="targetInput">Punti per vincere</label>
+          <input id="targetInput" type="number" min="1" max="99" inputmode="numeric" required>
+          <p class="hint">Il primo giocatore che raggiunge o supera questo punteggio vince.</p>
+        </div>
+        <div class="field">
+          <label for="foulsAllowedInput">Falli consentiti per round</label>
+          <input id="foulsAllowedInput" type="number" min="0" max="9" inputmode="numeric" required>
+          <p class="hint">Il fallo successivo a quelli consentiti assegna 1 punto all’avversario.</p>
+        </div>
+        <div class="field">
+          <span class="field-label">Logo</span>
+          <div class="logo-settings">
+            <div class="logo-preview" aria-hidden="true"><span id="defaultLogoPreview">X</span><img id="logoPreviewImage" alt="" hidden></div>
+            <div>
+              <div class="logo-actions">
+                <label class="utility-btn file-btn">Scegli immagine<input id="logoInput" type="file" accept="image/png,image/jpeg,image/webp"></label>
+                <button class="utility-btn" id="removeLogoBtn" type="button">Rimuovi logo</button>
+              </div>
+              <div class="logo-status" id="logoStatus"></div>
+            </div>
+          </div>
+        </div>
+        <div class="advanced-access">
+          <button class="utility-btn" id="advancedToggleBtn" type="button" aria-expanded="false">Impostazioni avanzate</button>
+        </div>
+        <section class="advanced-settings" id="advancedSettings" hidden>
+          <label class="toggle-field" for="simpleModeInput">
+            <input id="simpleModeInput" type="checkbox">
+            <span><strong>Modalità semplificata</strong><small>Tre grandi pulsanti numerici 3, 2, 1 e pareggio X.</small></span>
+          </label>
+          <h3>Tempi del countdown</h3>
+          <p class="hint">Tutti i valori sono espressi in secondi.</p>
+          <div class="timing-grid">
+            <div class="field"><label for="timingRoundInput">Numero del round</label><input id="timingRoundInput" type="number" min="0" max="60" step="0.1" inputmode="decimal" required></div>
+            <div class="field"><label for="timingPositionInput">Autoavvio “In posizione”</label><input id="timingPositionInput" type="number" min="1" max="60" step="0.1" inputmode="decimal" required></div>
+            <div class="field"><label for="timingThreeInput">Permanenza “3”</label><input id="timingThreeInput" type="number" min="0.1" max="60" step="0.1" inputmode="decimal" required></div>
+            <div class="field"><label for="timingTwoInput">Permanenza “2”</label><input id="timingTwoInput" type="number" min="0.1" max="60" step="0.1" inputmode="decimal" required></div>
+            <div class="field"><label for="timingOneInput">Permanenza “1”</label><input id="timingOneInput" type="number" min="0.1" max="60" step="0.1" inputmode="decimal" required></div>
+            <div class="field"><label for="timingReadyInput">Permanenza “PRONTI”</label><input id="timingReadyInput" type="number" min="0.1" max="60" step="0.1" inputmode="decimal" required></div>
+            <div class="field"><label for="timingLaunchInput">Permanenza “LANCIO!”</label><input id="timingLaunchInput" type="number" min="0.1" max="60" step="0.1" inputmode="decimal" required></div>
+          </div>
+          <div class="factory-reset">
+            <button class="utility-btn danger" id="factoryResetBtn" type="button">Factory reset</button>
+            <p class="hint">Cancella configurazione, logo, deck, partita e storico della sessione.</p>
+          </div>
+        </section>
+        <div class="color-tools">
+          <button class="utility-btn" id="randomColorsBtn" type="button">🎲 Colori casuali</button>
+        </div>
+        <div class="settings-grid">
+          <section class="player-settings red" id="playerSettings0">
+            <h3>Giocatore 1</h3>
+            <div class="field"><label for="nameInput0">Nome</label><input id="nameInput0" type="text" maxlength="30" required></div>
+            <div class="field">
+              <span class="field-label">Colore</span>
+              <div class="color-palette" data-player="0" role="group" aria-label="Colore giocatore 1"></div>
+            </div>
+            <div class="field">
+              <span class="field-label">Deck (opzionale)</span>
+              <div class="deck-inputs">
+                <input class="deck-input" data-player="0" data-slot="0" type="text" maxlength="50" placeholder="Bey 1 — es. Wizard Rod 9-60B">
+                <input class="deck-input" data-player="0" data-slot="1" type="text" maxlength="50" placeholder="Bey 2">
+                <input class="deck-input" data-player="0" data-slot="2" type="text" maxlength="50" placeholder="Bey 3">
+              </div>
+            </div>
+          </section>
+          <section class="player-settings blue" id="playerSettings1">
+            <h3>Giocatore 2</h3>
+            <div class="field"><label for="nameInput1">Nome</label><input id="nameInput1" type="text" maxlength="30" required></div>
+            <div class="field">
+              <span class="field-label">Colore</span>
+              <div class="color-palette" data-player="1" role="group" aria-label="Colore giocatore 2"></div>
+            </div>
+            <div class="field">
+              <span class="field-label">Deck (opzionale)</span>
+              <div class="deck-inputs">
+                <input class="deck-input" data-player="1" data-slot="0" type="text" maxlength="50" placeholder="Bey 1 — es. Cobalt Dragoon 5-60E">
+                <input class="deck-input" data-player="1" data-slot="1" type="text" maxlength="50" placeholder="Bey 2">
+                <input class="deck-input" data-player="1" data-slot="2" type="text" maxlength="50" placeholder="Bey 3">
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button class="utility-btn danger push-left" id="resetSessionBtn" type="button">Reset sessione</button>
+        <button class="utility-btn danger" id="resetStatsBtn" type="button">Reset statistiche</button>
+        <button class="utility-btn" id="clearDecksBtn" type="button">Svuota i deck</button>
+        <button class="utility-btn" id="cancelSettings" type="button">Annulla</button>
+        <button class="utility-btn primary" id="settingsSaveBtn" type="submit">Salva</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="winnerDialog">
+    <div class="winner-card">
+      <div class="winner-kicker">Vittoria</div>
+      <div class="winner-name" id="winnerName"></div>
+      <div class="winner-score" id="winnerScore"></div>
+      <div class="winner-actions">
+        <button class="utility-btn" id="correctBtn" type="button">↶ Correggi</button>
+        <button class="utility-btn primary" id="winnerNewGameBtn" type="button">Nuova partita</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="session-dialog" id="sessionHistoryDialog">
+    <div class="dialog-form">
+      <div class="dialog-head">
+        <h2>Storico sessione</h2>
+        <button class="icon-btn" id="closeSessionHistory" type="button" aria-label="Chiudi">×</button>
+      </div>
+      <div class="dialog-body">
+        <div class="session-list" id="sessionList"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="countdown-overlay" id="countdownOverlay" role="dialog" aria-modal="true" aria-label="Avvio del round" hidden>
+    <div class="countdown-card">
+      <div class="countdown-ready" id="countdownReady" hidden>
+        <button class="countdown-start" id="countdownStartBtn" type="button">IN POSIZIONE – GIOCO</button>
+        <div class="auto-start-bar" aria-hidden="true"><div class="auto-start-fill" id="autoStartFill"></div></div>
+      </div>
+      <div class="countdown-value" id="countdownValue" aria-live="assertive" hidden></div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+      const STORAGE_KEY = 'beyblade-x-scoreboard-play-v1';
+      const COLOR_PALETTE = [
+        { name: 'Rosso', value: '#ff4d5f' },
+        { name: 'Blu', value: '#32b8ff' },
+        { name: 'Giallo', value: '#ffd43b' },
+        { name: 'Verde', value: '#4ade80' },
+        { name: 'Arancione', value: '#ff9f43' },
+        { name: 'Viola', value: '#b983ff' },
+        { name: 'Rosa', value: '#ff70c7' },
+        { name: 'Turchese', value: '#2dd4bf' },
+        { name: 'Lime', value: '#a3e635' }
+      ];
+      const defaults = {
+        names: ['Giocatore 1', 'Giocatore 2'],
+        colors: [COLOR_PALETTE[0].value, COLOR_PALETTE[1].value],
+        logoData: '',
+        simpleMode: false,
+        decks: [['', '', ''], ['', '', '']],
+        target: 5,
+        timings: {
+          roundIntro: 2000,
+          positionTimeout: 10000,
+          three: 1000,
+          two: 1000,
+          one: 1000,
+          ready: 1000,
+          launch: 1500
+        },
+        foulsAllowed: 1,
+        fouls: [0, 0],
+        repeatReason: '',
+        scores: [0, 0],
+        history: [],
+        sessionGames: []
+      };
+
+      const $ = (selector) => document.querySelector(selector);
+      const $$ = (selector) => [...document.querySelectorAll(selector)];
+      const cloneDefaults = () => JSON.parse(JSON.stringify(defaults));
+
+      function validTiming(value, fallback, minimum) {
+        const number = Number(value);
+        return Number.isFinite(number) ? Math.min(60000, Math.max(minimum, Math.round(number))) : fallback;
+      }
+
+      function readTiming(selector, fallback, minimum) {
+        const seconds = Number($(selector).value);
+        return Number.isFinite(seconds) ? validTiming(seconds * 1000, fallback, minimum) : fallback;
+      }
+
+      function loadState() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+          if (!saved || !Array.isArray(saved.names) || !Array.isArray(saved.scores)) return cloneDefaults();
+          const allowedColors = COLOR_PALETTE.map(color => color.value);
+          const colors = [0, 1].map(p => allowedColors.includes(saved.colors?.[p]) ? saved.colors[p] : defaults.colors[p]);
+          if (colors[0] === colors[1]) colors[1] = allowedColors.find(color => color !== colors[0]);
+          const savedFoulsAllowed = Number(saved.foulsAllowed);
+          const foulsAllowed = Number.isFinite(savedFoulsAllowed) ? Math.min(9, Math.max(0, Math.trunc(savedFoulsAllowed))) : defaults.foulsAllowed;
+          const fouls = [0, 1].map(p => Math.min(foulsAllowed, Math.max(0, Math.trunc(Number(saved.fouls?.[p])) || 0)));
+          const logoData = typeof saved.logoData === 'string' && /^data:image\/(png|jpeg|webp);base64,/.test(saved.logoData) && saved.logoData.length < 2000000 ? saved.logoData : '';
+          const timings = {
+            roundIntro: validTiming(saved.timings?.roundIntro, defaults.timings.roundIntro, 0),
+            positionTimeout: validTiming(saved.timings?.positionTimeout, defaults.timings.positionTimeout, 1000),
+            three: validTiming(saved.timings?.three, defaults.timings.three, 100),
+            two: validTiming(saved.timings?.two, defaults.timings.two, 100),
+            one: validTiming(saved.timings?.one, defaults.timings.one, 100),
+            ready: validTiming(saved.timings?.ready, defaults.timings.ready, 100),
+            launch: validTiming(saved.timings?.launch, defaults.timings.launch, 100)
+          };
+          return {
+            names: [String(saved.names[0] || defaults.names[0]), String(saved.names[1] || defaults.names[1])],
+            colors,
+            logoData,
+            simpleMode: saved.simpleMode === true,
+            decks: [0, 1].map(p => Array.isArray(saved.decks?.[p]) ? [0, 1, 2].map(i => String(saved.decks[p][i] || '')) : ['', '', '']),
+            target: Math.min(99, Math.max(1, Number(saved.target) || defaults.target)),
+            timings,
+            foulsAllowed,
+            fouls,
+            repeatReason: saved.repeatReason === 'draw' || saved.repeatReason === 'foul' ? saved.repeatReason : '',
+            scores: [Math.max(0, Number(saved.scores[0]) || 0), Math.max(0, Number(saved.scores[1]) || 0)],
+            history: Array.isArray(saved.history) ? saved.history.slice(-100) : [],
+            sessionGames: Array.isArray(saved.sessionGames) ? saved.sessionGames.slice(-100) : []
+          };
+        } catch (_) {
+          return cloneDefaults();
+        }
+      }
+
+      const isFirstRun = !localStorage.getItem(STORAGE_KEY);
+      let state = loadState();
+      const settingsDialog = $('#settingsDialog');
+      const winnerDialog = $('#winnerDialog');
+      const sessionHistoryDialog = $('#sessionHistoryDialog');
+      const countdownOverlay = $('#countdownOverlay');
+      const countdownReady = $('#countdownReady');
+      const countdownStartBtn = $('#countdownStartBtn');
+      const countdownValue = $('#countdownValue');
+      const autoStartFill = $('#autoStartFill');
+      let sequenceActive = false;
+      let countdownStarted = false;
+      let roundActive = false;
+      let correctionMode = false;
+      let autoStartTimer = null;
+      let draftColors = [...state.colors];
+      let draftLogoData = state.logoData;
+
+      function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      function winnerIndex() { return state.scores.findIndex(score => score >= state.target); }
+
+      function render() {
+        document.body.classList.toggle('simple-mode', state.simpleMode);
+        const customLogo = $('#customLogo');
+        const defaultLogo = $('#defaultLogo');
+        if (state.logoData) {
+          customLogo.src = state.logoData;
+          customLogo.hidden = false;
+          defaultLogo.hidden = true;
+        } else {
+          customLogo.removeAttribute('src');
+          customLogo.hidden = true;
+          defaultLogo.hidden = false;
+        }
+
+        [0, 1].forEach(p => {
+          $(`.player[data-player="${p}"]`).style.setProperty('--accent', state.colors[p]);
+          $(`#name${p}`).textContent = state.names[p];
+          $(`#score${p}`).textContent = state.scores[p];
+          $(`#foulCount${p}`).textContent = `${state.fouls[p]} / ${state.foulsAllowed}`;
+          const filled = state.decks[p].filter(Boolean);
+          $(`#deck${p}`).textContent = filled.length ? filled.join(' · ') : '';
+          $(`#deck${p}`).title = filled.join('\n');
+        });
+
+        const winner = winnerIndex();
+        const buttons = $$('.finish-btn');
+        const scoreEnabled = winner === -1 && !sequenceActive && (roundActive || correctionMode);
+        buttons.forEach(btn => btn.disabled = !scoreEnabled);
+        $$('.foul-btn').forEach(btn => btn.disabled = !scoreEnabled);
+        $('#drawBtn').disabled = !scoreEnabled;
+        $('#playBtn').disabled = winner !== -1 || sequenceActive || roundActive;
+        $('#undoBtn').disabled = state.history.length === 0 || sequenceActive || roundActive;
+
+        const status = $('#status');
+        if (winner !== -1) {
+          status.className = 'status finished';
+          status.innerHTML = `<strong>${escapeHtml(state.names[winner])}</strong> ha vinto · ${state.scores[0]}–${state.scores[1]}`;
+        } else if (sequenceActive) {
+          status.className = 'status';
+          status.innerHTML = `Preparazione del round <strong>${state.history.length + 1}</strong>`;
+        } else if (correctionMode) {
+          status.className = 'status';
+          status.innerHTML = `<strong>Correzione risultato</strong> · seleziona l’esito corretto`;
+        } else if (roundActive) {
+          status.className = 'status';
+          const fouls = foulStatus();
+          status.innerHTML = `Round <strong>${state.history.length + 1}</strong> in corso · registra l’esito${fouls ? ` · ${fouls}` : ''}`;
+        } else {
+          status.className = 'status';
+          const round = state.history.length + 1;
+          const fouls = foulStatus();
+          const repeat = state.repeatReason === 'draw' ? '<strong>Pareggio</strong> · 0 punti' : '';
+          status.innerHTML = repeat || fouls
+            ? `Round <strong>${round}</strong> · ${[repeat, fouls].filter(Boolean).join(' · ')} · premi <strong>PLAY</strong> per ripetere il lancio`
+            : `Round <strong>${round}</strong> · premi <strong>PLAY</strong> per iniziare`;
+        }
+
+        const history = $('#historyItems');
+        history.replaceChildren();
+        if (!state.history.length) {
+          const empty = document.createElement('span');
+          empty.className = 'empty-history';
+          empty.textContent = 'Nessun round giocato';
+          history.append(empty);
+        } else {
+          state.history.forEach((item, index) => {
+            const chip = document.createElement('span');
+            chip.className = `round-chip ${item.player === 0 ? 'red' : 'blue'}`;
+            chip.style.borderLeftColor = state.colors[item.player];
+            if (item.finish === 'Foul') {
+              chip.textContent = `${index + 1}. FALLO ${state.names[item.offender]} · +1 ${state.names[item.player]}`;
+              chip.title = `Punto a ${state.names[item.player]} per fallo di ${state.names[item.offender]}`;
+            } else {
+              chip.textContent = `${index + 1}. ${state.names[item.player]} +${item.points} ${resultLabel(item.finish, item.points)}`;
+              chip.title = item.finish === 'Simple Score'
+                ? `${state.names[item.player]} — ${item.points} ${Number(item.points) === 1 ? 'punto' : 'punti'}`
+                : `${state.names[item.player]} — ${item.finish} (+${item.points})`;
+            }
+            history.append(chip);
+          });
+          requestAnimationFrame(() => { history.scrollLeft = history.scrollWidth; });
+        }
+        save();
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function shortFinish(finish) {
+        return ({'Spin Finish':'SPIN', 'Burst Finish':'BURST', 'Over Finish':'OVER', 'Xtreme Finish':'XTREME', 'Foul':'FALLO'})[finish] || finish;
+      }
+
+      function resultLabel(finish, points) {
+        if (finish === 'Simple Score') return Number(points) === 1 ? 'PUNTO' : 'PUNTI';
+        return shortFinish(finish);
+      }
+
+      function foulStatus() {
+        return [0, 1]
+          .filter(player => state.fouls[player] > 0)
+          .map(player => `<strong>${escapeHtml(state.names[player])}</strong>: ${state.fouls[player]}/${state.foulsAllowed} falli`)
+          .join(' · ');
+      }
+
+      function addPoints(player, points, finish) {
+        if (winnerIndex() !== -1 || sequenceActive || (!roundActive && !correctionMode)) return;
+        state.scores[player] += points;
+        state.history.push({ player, points, finish });
+        state.fouls = [0, 0];
+        state.repeatReason = '';
+        roundActive = false;
+        correctionMode = false;
+        if (navigator.vibrate) navigator.vibrate(points === 3 ? [35, 30, 35] : 35);
+        render();
+        const winner = winnerIndex();
+        if (winner !== -1) showWinner(winner);
+      }
+
+      function registerFoul(offender) {
+        if (winnerIndex() !== -1 || sequenceActive || (!roundActive && !correctionMode)) return;
+        state.fouls[offender] += 1;
+
+        if (state.fouls[offender] > state.foulsAllowed) {
+          const player = 1 - offender;
+          state.scores[player] += 1;
+          state.history.push({ player, points: 1, finish: 'Foul', offender });
+          state.fouls = [0, 0];
+          state.repeatReason = '';
+          roundActive = false;
+          correctionMode = false;
+          if (navigator.vibrate) navigator.vibrate([70, 35, 70]);
+          render();
+          const winner = winnerIndex();
+          if (winner !== -1) showWinner(winner);
+          return;
+        }
+
+        state.repeatReason = 'foul';
+        if (!correctionMode) roundActive = false;
+        if (navigator.vibrate) navigator.vibrate(45);
+        render();
+      }
+
+      function registerDraw() {
+        if (winnerIndex() !== -1 || sequenceActive || (!roundActive && !correctionMode)) return;
+        state.repeatReason = 'draw';
+        roundActive = false;
+        correctionMode = false;
+        if (navigator.vibrate) navigator.vibrate([35, 25, 35]);
+        render();
+      }
+
+      function undo() {
+        const last = state.history.pop();
+        if (!last) return;
+        state.scores[last.player] = Math.max(0, state.scores[last.player] - last.points);
+        state.fouls = [0, 0];
+        state.repeatReason = '';
+        roundActive = false;
+        correctionMode = true;
+        if (winnerDialog.open) winnerDialog.close();
+        render();
+      }
+
+      function newGame() {
+        archiveCurrentGame();
+        state.scores = [0, 0];
+        state.history = [];
+        state.fouls = [0, 0];
+        state.repeatReason = '';
+        roundActive = false;
+        correctionMode = false;
+        if (winnerDialog.open) winnerDialog.close();
+        render();
+      }
+
+      function gameSnapshot() {
+        const winner = winnerIndex();
+        return {
+          names: [...state.names],
+          colors: [...state.colors],
+          target: state.target,
+          scores: [...state.scores],
+          history: state.history.map(item => ({ ...item })),
+          completed: winner !== -1,
+          winner
+        };
+      }
+
+      function archiveCurrentGame() {
+        if (!state.history.length) return;
+        state.sessionGames.push(gameSnapshot());
+        state.sessionGames = state.sessionGames.slice(-100);
+      }
+
+      function renderSessionHistory() {
+        const list = $('#sessionList');
+        list.replaceChildren();
+        const games = state.sessionGames.map(game => ({ ...game, current: false }));
+        if (state.history.length) games.push({ ...gameSnapshot(), current: true });
+
+        if (!games.length) {
+          const empty = document.createElement('div');
+          empty.className = 'session-empty';
+          empty.textContent = 'Nessuna partita giocata in questa sessione.';
+          list.append(empty);
+          return;
+        }
+
+        games.forEach((game, gameIndex) => {
+          const names = Array.isArray(game.names) ? game.names : defaults.names;
+          const colors = Array.isArray(game.colors) ? game.colors : defaults.colors;
+          const scores = Array.isArray(game.scores) ? game.scores : [0, 0];
+          const rounds = Array.isArray(game.history) ? game.history : [];
+          const card = document.createElement('article');
+          card.className = 'session-game';
+
+          const head = document.createElement('div');
+          head.className = 'session-game-head';
+          const title = document.createElement('h3');
+          title.textContent = `Partita ${gameIndex + 1}`;
+          const status = document.createElement('span');
+          status.className = `session-status ${game.completed ? 'complete' : ''}`;
+          status.textContent = game.current && !game.completed ? 'In corso' : game.completed ? 'Conclusa' : 'Interrotta';
+          head.append(title, status);
+
+          const score = document.createElement('div');
+          score.className = 'session-score';
+          const player1 = document.createElement('span');
+          player1.className = 'p1';
+          player1.textContent = names[0] || defaults.names[0];
+          player1.style.color = colors[0] || defaults.colors[0];
+          const numbers = document.createElement('span');
+          numbers.className = 'numbers';
+          numbers.textContent = `${Number(scores[0]) || 0}–${Number(scores[1]) || 0}`;
+          const player2 = document.createElement('span');
+          player2.className = 'p2';
+          player2.textContent = names[1] || defaults.names[1];
+          player2.style.color = colors[1] || defaults.colors[1];
+          score.append(player1, numbers, player2);
+
+          const roundList = document.createElement('div');
+          roundList.className = 'session-rounds';
+          rounds.forEach((round, roundIndex) => {
+            const player = Number(round.player) === 1 ? 1 : 0;
+            const row = document.createElement('div');
+            row.className = 'session-round';
+            row.style.setProperty('--round-color', colors[player] || defaults.colors[player]);
+            if (round.finish === 'Foul') {
+              const offender = Number(round.offender) === 1 ? 1 : 0;
+              row.textContent = `Round ${roundIndex + 1} · FALLO di ${names[offender] || defaults.names[offender]} · +1 a ${names[player] || defaults.names[player]}`;
+            } else {
+              row.textContent = `Round ${roundIndex + 1} · ${names[player] || defaults.names[player]} · ${resultLabel(round.finish, round.points)} · +${Number(round.points) || 0}`;
+            }
+            roundList.append(row);
+          });
+
+          card.append(head, score, roundList);
+          list.append(card);
+        });
+      }
+
+      function resetSession() {
+        if (!confirm('Azzerare la partita corrente e tutto lo storico della sessione?')) return;
+        state.scores = [0, 0];
+        state.history = [];
+        state.fouls = [0, 0];
+        state.repeatReason = '';
+        state.sessionGames = [];
+        roundActive = false;
+        correctionMode = false;
+        if (winnerDialog.open) winnerDialog.close();
+        settingsDialog.close();
+        render();
+      }
+
+      function resetStatistics() {
+        if (!confirm('Cancellare lo storico delle partite già archiviate? La partita corrente resterà invariata.')) return;
+        state.sessionGames = [];
+        render();
+      }
+
+      function factoryReset() {
+        if (!confirm('Ripristinare l’app alle impostazioni iniziali? Verranno cancellati logo, giocatori, deck, partita, storico e tutte le personalizzazioni.')) return;
+        if (autoStartTimer !== null) {
+          clearTimeout(autoStartTimer);
+          autoStartTimer = null;
+        }
+        localStorage.removeItem(STORAGE_KEY);
+        state = cloneDefaults();
+        draftColors = [...state.colors];
+        draftLogoData = '';
+        sequenceActive = false;
+        countdownStarted = false;
+        roundActive = false;
+        correctionMode = false;
+        countdownOverlay.hidden = true;
+        autoStartFill.classList.remove('active');
+        if (winnerDialog.open) winnerDialog.close();
+        if (sessionHistoryDialog.open) sessionHistoryDialog.close();
+        settingsDialog.close();
+        render();
+      }
+
+      function showWinner(player) {
+        $('#winnerName').textContent = state.names[player];
+        $('#winnerScore').textContent = `Punteggio finale ${state.scores[0]}–${state.scores[1]}`;
+        if (!winnerDialog.open) winnerDialog.showModal();
+      }
+
+      function wait(milliseconds) {
+        return new Promise(resolve => setTimeout(resolve, milliseconds));
+      }
+
+      async function openCountdown() {
+        if (winnerIndex() !== -1 || sequenceActive || roundActive) return;
+        correctionMode = false;
+        state.repeatReason = '';
+        sequenceActive = true;
+        countdownStarted = false;
+        countdownReady.hidden = true;
+        countdownValue.hidden = false;
+        countdownValue.className = 'countdown-value round';
+        countdownValue.textContent = `ROUND ${state.history.length + 1}`;
+        countdownOverlay.hidden = false;
+        render();
+
+        await wait(state.timings.roundIntro);
+        if (!sequenceActive || countdownStarted) return;
+        countdownValue.hidden = true;
+        countdownReady.hidden = false;
+        autoStartFill.classList.remove('active');
+        void autoStartFill.offsetWidth;
+        autoStartFill.style.animationDuration = `${state.timings.positionTimeout}ms`;
+        autoStartFill.classList.add('active');
+        countdownStartBtn.focus();
+        autoStartTimer = setTimeout(startCountdown, state.timings.positionTimeout);
+      }
+
+      async function startCountdown() {
+        if (!sequenceActive || countdownStarted) return;
+        if (autoStartTimer !== null) {
+          clearTimeout(autoStartTimer);
+          autoStartTimer = null;
+        }
+        countdownStarted = true;
+        autoStartFill.classList.remove('active');
+        countdownReady.hidden = true;
+        countdownValue.hidden = false;
+
+        const steps = [
+          { text: '3', duration: state.timings.three, className: '' },
+          { text: '2', duration: state.timings.two, className: '' },
+          { text: '1', duration: state.timings.one, className: '' },
+          { text: 'PRONTI', duration: state.timings.ready, className: 'word' },
+          { text: 'LANCIO!', duration: state.timings.launch, className: 'word launch' }
+        ];
+
+        for (const step of steps) {
+          countdownValue.className = `countdown-value ${step.className}`.trim();
+          countdownValue.textContent = step.text;
+          if (step.text === 'LANCIO!' && navigator.vibrate) navigator.vibrate([60, 35, 100]);
+          await wait(step.duration);
+        }
+
+        countdownOverlay.hidden = true;
+        sequenceActive = false;
+        countdownStarted = false;
+        roundActive = true;
+        render();
+      }
+
+      function openSettings() {
+        draftColors = [...state.colors];
+        draftLogoData = state.logoData;
+        $('#targetInput').value = state.target;
+        $('#foulsAllowedInput').value = state.foulsAllowed;
+        $('#simpleModeInput').checked = state.simpleMode;
+        $('#timingRoundInput').value = state.timings.roundIntro / 1000;
+        $('#timingPositionInput').value = state.timings.positionTimeout / 1000;
+        $('#timingThreeInput').value = state.timings.three / 1000;
+        $('#timingTwoInput').value = state.timings.two / 1000;
+        $('#timingOneInput').value = state.timings.one / 1000;
+        $('#timingReadyInput').value = state.timings.ready / 1000;
+        $('#timingLaunchInput').value = state.timings.launch / 1000;
+        $('#nameInput0').value = state.names[0];
+        $('#nameInput1').value = state.names[1];
+        $$('.deck-input').forEach(input => {
+          input.value = state.decks[Number(input.dataset.player)][Number(input.dataset.slot)];
+        });
+        $('#logoInput').value = '';
+        $('#logoStatus').textContent = '';
+        $('#settingsSaveBtn').disabled = false;
+        $('#advancedSettings').hidden = true;
+        $('#advancedToggleBtn').setAttribute('aria-expanded', 'false');
+        $('#advancedToggleBtn').textContent = 'Impostazioni avanzate';
+        renderLogoPreview();
+        renderColorPalettes();
+        settingsDialog.showModal();
+      }
+
+      function renderLogoPreview() {
+        const image = $('#logoPreviewImage');
+        const fallback = $('#defaultLogoPreview');
+        if (draftLogoData) {
+          image.src = draftLogoData;
+          image.hidden = false;
+          fallback.hidden = true;
+        } else {
+          image.removeAttribute('src');
+          image.hidden = true;
+          fallback.hidden = false;
+        }
+        $('#removeLogoBtn').disabled = !draftLogoData;
+      }
+
+      function prepareLogo(file) {
+        return new Promise((resolve, reject) => {
+          if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) {
+            reject(new Error('Formato non supportato. Usa PNG, JPEG o WebP.'));
+            return;
+          }
+          if (file.size > 8 * 1024 * 1024) {
+            reject(new Error('Immagine troppo grande. Il limite è 8 MB.'));
+            return;
+          }
+
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error('Impossibile leggere il file.'));
+          reader.onload = () => {
+            const image = new Image();
+            image.onerror = () => reject(new Error('Impossibile aprire questa immagine.'));
+            image.onload = () => {
+              const size = 256;
+              const canvas = document.createElement('canvas');
+              canvas.width = size;
+              canvas.height = size;
+              const context = canvas.getContext('2d');
+              context.clearRect(0, 0, size, size);
+              const scale = Math.min(size / image.naturalWidth, size / image.naturalHeight);
+              const width = Math.max(1, Math.round(image.naturalWidth * scale));
+              const height = Math.max(1, Math.round(image.naturalHeight * scale));
+              context.drawImage(image, Math.round((size - width) / 2), Math.round((size - height) / 2), width, height);
+              resolve(canvas.toDataURL('image/png'));
+            };
+            image.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      function renderColorPalettes() {
+        $$('.color-palette').forEach(palette => {
+          const player = Number(palette.dataset.player);
+          const otherColor = draftColors[1 - player];
+          palette.replaceChildren();
+
+          COLOR_PALETTE.forEach(color => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'color-choice';
+            button.style.setProperty('--choice-color', color.value);
+            button.title = color.name;
+            button.setAttribute('aria-label', color.name);
+            button.setAttribute('aria-pressed', String(draftColors[player] === color.value));
+            button.disabled = color.value === otherColor;
+            if (draftColors[player] === color.value) button.classList.add('selected');
+            button.addEventListener('click', () => {
+              draftColors[player] = color.value;
+              renderColorPalettes();
+            });
+            palette.append(button);
+          });
+
+          $(`#playerSettings${player}`).style.borderTopColor = draftColors[player];
+        });
+      }
+
+      function randomizeColors() {
+        const first = Math.floor(Math.random() * COLOR_PALETTE.length);
+        let second = Math.floor(Math.random() * (COLOR_PALETTE.length - 1));
+        if (second >= first) second += 1;
+        draftColors = [COLOR_PALETTE[first].value, COLOR_PALETTE[second].value];
+        renderColorPalettes();
+      }
+
+      $$('.finish-btn').forEach(btn => btn.addEventListener('click', () => {
+        const points = Number(btn.dataset.points);
+        addPoints(Number(btn.dataset.player), points, state.simpleMode ? 'Simple Score' : btn.dataset.finish);
+      }));
+      $$('.foul-btn').forEach(btn => btn.addEventListener('click', () => {
+        registerFoul(Number(btn.dataset.player));
+      }));
+      $('#drawBtn').addEventListener('click', registerDraw);
+      $('#undoBtn').addEventListener('click', undo);
+      $('#newGameBtn').addEventListener('click', newGame);
+      $('#winnerNewGameBtn').addEventListener('click', newGame);
+      $('#correctBtn').addEventListener('click', undo);
+      $('#settingsBtn').addEventListener('click', openSettings);
+      $('#sessionHistoryBtn').addEventListener('click', () => {
+        renderSessionHistory();
+        sessionHistoryDialog.showModal();
+      });
+      $('#closeSessionHistory').addEventListener('click', () => sessionHistoryDialog.close());
+      $('#playBtn').addEventListener('click', openCountdown);
+      $('#randomColorsBtn').addEventListener('click', randomizeColors);
+      $('#advancedToggleBtn').addEventListener('click', () => {
+        const panel = $('#advancedSettings');
+        panel.hidden = !panel.hidden;
+        $('#advancedToggleBtn').setAttribute('aria-expanded', String(!panel.hidden));
+        $('#advancedToggleBtn').textContent = panel.hidden ? 'Impostazioni avanzate' : 'Nascondi impostazioni avanzate';
+      });
+      $('#factoryResetBtn').addEventListener('click', factoryReset);
+      $('#logoInput').addEventListener('change', async event => {
+        const file = event.target.files[0];
+        if (!file) return;
+        $('#logoStatus').textContent = 'Preparazione del logo…';
+        $('#settingsSaveBtn').disabled = true;
+        try {
+          draftLogoData = await prepareLogo(file);
+          $('#logoStatus').textContent = 'Logo pronto. Premi Salva per applicarlo.';
+          renderLogoPreview();
+        } catch (error) {
+          $('#logoStatus').textContent = error.message;
+        } finally {
+          $('#settingsSaveBtn').disabled = false;
+        }
+      });
+      $('#removeLogoBtn').addEventListener('click', () => {
+        draftLogoData = '';
+        $('#logoInput').value = '';
+        $('#logoStatus').textContent = 'Logo rimosso. Premi Salva per confermare.';
+        renderLogoPreview();
+      });
+      $('#clearDecksBtn').addEventListener('click', () => {
+        $$('.deck-input').forEach(input => { input.value = ''; });
+      });
+      $('#resetSessionBtn').addEventListener('click', resetSession);
+      $('#resetStatsBtn').addEventListener('click', resetStatistics);
+      countdownStartBtn.addEventListener('click', startCountdown);
+      $('#closeSettings').addEventListener('click', () => settingsDialog.close());
+      $('#cancelSettings').addEventListener('click', () => settingsDialog.close());
+      $('#settingsForm').addEventListener('submit', event => {
+        event.preventDefault();
+        const target = Math.min(99, Math.max(1, Number($('#targetInput').value) || 5));
+        const foulSetting = Number($('#foulsAllowedInput').value);
+        const foulsAllowed = Number.isFinite(foulSetting) ? Math.min(9, Math.max(0, Math.trunc(foulSetting))) : defaults.foulsAllowed;
+        if (foulsAllowed !== state.foulsAllowed) state.fouls = [0, 0];
+        state.target = target;
+        state.foulsAllowed = foulsAllowed;
+        state.simpleMode = $('#simpleModeInput').checked;
+        state.timings = {
+          roundIntro: readTiming('#timingRoundInput', defaults.timings.roundIntro, 0),
+          positionTimeout: readTiming('#timingPositionInput', defaults.timings.positionTimeout, 1000),
+          three: readTiming('#timingThreeInput', defaults.timings.three, 100),
+          two: readTiming('#timingTwoInput', defaults.timings.two, 100),
+          one: readTiming('#timingOneInput', defaults.timings.one, 100),
+          ready: readTiming('#timingReadyInput', defaults.timings.ready, 100),
+          launch: readTiming('#timingLaunchInput', defaults.timings.launch, 100)
+        };
+        state.names = [$('#nameInput0').value.trim() || defaults.names[0], $('#nameInput1').value.trim() || defaults.names[1]];
+        state.colors = [...draftColors];
+        state.logoData = draftLogoData;
+        state.decks = [0, 1].map(p => [0, 1, 2].map(slot => {
+          return $(`.deck-input[data-player="${p}"][data-slot="${slot}"]`).value.trim();
+        }));
+        settingsDialog.close();
+        render();
+        const winner = winnerIndex();
+        if (winner !== -1) showWinner(winner);
+      });
+
+      $('#fullscreenBtn').addEventListener('click', async () => {
+        try {
+          const fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement;
+          if (fullscreenElement) {
+            const exit = document.exitFullscreen || document.webkitExitFullscreen;
+            if (exit) await exit.call(document);
+          } else {
+            const root = document.documentElement;
+            const request = root.requestFullscreen || root.webkitRequestFullscreen;
+            if (request) await request.call(root);
+          }
+        } catch (_) { /* Fullscreen non disponibile, l'app resta utilizzabile. */ }
+      });
+
+      [settingsDialog, winnerDialog, sessionHistoryDialog].forEach(dialog => dialog.addEventListener('click', event => {
+        if (event.target === dialog && dialog !== winnerDialog) dialog.close();
+      }));
+
+      render();
+      if (isFirstRun) openSettings();
+    })();
+  </script>
+</body>
+</html>
