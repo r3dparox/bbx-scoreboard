@@ -893,12 +893,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
           const logoData = typeof saved.logoData === 'string' && /^data:image\/(png|jpeg|webp);base64,/.test(saved.logoData) && saved.logoData.length < 2000000 ? saved.logoData : '';
           const timings = {
             roundIntro: validTiming(saved.timings?.roundIntro, defaults.timings.roundIntro, 0),
-            positionTimeout: validTiming(saved.timings?.positionTimeout, defaults.timings.positionTimeout, 1000),
-            three: validTiming(saved.timings?.three, defaults.timings.three, 100),
-            two: validTiming(saved.timings?.two, defaults.timings.two, 100),
-            one: validTiming(saved.timings?.one, defaults.timings.one, 100),
-            ready: validTiming(saved.timings?.ready, defaults.timings.ready, 100),
-            launch: validTiming(saved.timings?.launch, defaults.timings.launch, 100)
+            positionTimeout: validTiming(saved.timings?.positionTimeout, defaults.timings.positionTimeout, 0),
+            three: validTiming(saved.timings?.three, defaults.timings.three, 0),
+            two: validTiming(saved.timings?.two, defaults.timings.two, 0),
+            one: validTiming(saved.timings?.one, defaults.timings.one, 0),
+            ready: validTiming(saved.timings?.ready, defaults.timings.ready, 0),
+            launch: validTiming(saved.timings?.launch, defaults.timings.launch, 0)
           };
           return {
             names: [String(saved.names[0] || defaults.names[0]), String(saved.names[1] || defaults.names[1])],
