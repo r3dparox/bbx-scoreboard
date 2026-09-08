@@ -729,16 +729,20 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
             <input id="simpleModeInput" type="checkbox">
             <span><strong>Modalità semplificata</strong><small>Tre grandi pulsanti numerici 3, 2, 1 e pareggio X.</small></span>
           </label>
+          <label class="toggle-field" for="skipCountdownInput">
+            <input id="skipCountdownInput" type="checkbox">
+            <span><strong>Disattiva Countdown</strong><small>Mostra l’overlay con il numero del round e attiva subito la scoreboard senza countdown.</small></span>
+          </label>
           <h3>Tempi del countdown</h3>
           <p class="hint">Tutti i valori sono espressi in secondi.</p>
           <div class="timing-grid">
             <div class="field"><label for="timingRoundInput">Numero del round</label><input id="timingRoundInput" type="number" min="0" max="60" step="0.1" inputmode="decimal" required></div>
-            <div class="field"><label for="timingPositionInput">Autoavvio “In posizione”</label><input id="timingPositionInput" type="number" min="0" max="60" step="0.1" inputmode="decimal" required></div>
-            <div class="field"><label for="timingThreeInput">Permanenza “3”</label><input id="timingThreeInput" type="number" min="0" max="60" step="0.1" inputmode="decimal" required></div>
-            <div class="field"><label for="timingTwoInput">Permanenza “2”</label><input id="timingTwoInput" type="number" min="0" max="60" step="0.1" inputmode="decimal" required></div>
-            <div class="field"><label for="timingOneInput">Permanenza “1”</label><input id="timingOneInput" type="number" min="0" max="60" step="0.1" inputmode="decimal" required></div>
-            <div class="field"><label for="timingReadyInput">Permanenza “PRONTI”</label><input id="timingReadyInput" type="number" min="0" max="60" step="0.1" inputmode="decimal" required></div>
-            <div class="field"><label for="timingLaunchInput">Permanenza “LANCIO!”</label><input id="timingLaunchInput" type="number" min="0" max="60" step="0.1" inputmode="decimal" required></div>
+            <div class="field"><label for="timingPositionInput">Autoavvio “In posizione”</label><input id="timingPositionInput" type="number" min="1" max="60" step="0.1" inputmode="decimal" required></div>
+            <div class="field"><label for="timingThreeInput">Permanenza “3”</label><input id="timingThreeInput" type="number" min="0.1" max="60" step="0.1" inputmode="decimal" required></div>
+            <div class="field"><label for="timingTwoInput">Permanenza “2”</label><input id="timingTwoInput" type="number" min="0.1" max="60" step="0.1" inputmode="decimal" required></div>
+            <div class="field"><label for="timingOneInput">Permanenza “1”</label><input id="timingOneInput" type="number" min="0.1" max="60" step="0.1" inputmode="decimal" required></div>
+            <div class="field"><label for="timingReadyInput">Permanenza “PRONTI”</label><input id="timingReadyInput" type="number" min="0.1" max="60" step="0.1" inputmode="decimal" required></div>
+            <div class="field"><label for="timingLaunchInput">Permanenza “LANCIO!”</label><input id="timingLaunchInput" type="number" min="0.1" max="60" step="0.1" inputmode="decimal" required></div>
           </div>
           <div class="factory-reset">
             <button class="utility-btn danger" id="factoryResetBtn" type="button">Factory reset</button>
@@ -847,6 +851,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         colors: [COLOR_PALETTE[0].value, COLOR_PALETTE[1].value],
         logoData: '',
         simpleMode: false,
+        skipCountdown: false,
         decks: [['', '', ''], ['', '', '']],
         target: 5,
         timings: {
@@ -893,18 +898,19 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
           const logoData = typeof saved.logoData === 'string' && /^data:image\/(png|jpeg|webp);base64,/.test(saved.logoData) && saved.logoData.length < 2000000 ? saved.logoData : '';
           const timings = {
             roundIntro: validTiming(saved.timings?.roundIntro, defaults.timings.roundIntro, 0),
-            positionTimeout: validTiming(saved.timings?.positionTimeout, defaults.timings.positionTimeout, 0),
-            three: validTiming(saved.timings?.three, defaults.timings.three, 0),
-            two: validTiming(saved.timings?.two, defaults.timings.two, 0),
-            one: validTiming(saved.timings?.one, defaults.timings.one, 0),
-            ready: validTiming(saved.timings?.ready, defaults.timings.ready, 0),
-            launch: validTiming(saved.timings?.launch, defaults.timings.launch, 0)
+            positionTimeout: validTiming(saved.timings?.positionTimeout, defaults.timings.positionTimeout, 1000),
+            three: validTiming(saved.timings?.three, defaults.timings.three, 100),
+            two: validTiming(saved.timings?.two, defaults.timings.two, 100),
+            one: validTiming(saved.timings?.one, defaults.timings.one, 100),
+            ready: validTiming(saved.timings?.ready, defaults.timings.ready, 100),
+            launch: validTiming(saved.timings?.launch, defaults.timings.launch, 100)
           };
           return {
             names: [String(saved.names[0] || defaults.names[0]), String(saved.names[1] || defaults.names[1])],
             colors,
             logoData,
             simpleMode: saved.simpleMode === true,
+            skipCountdown: saved.skipCountdown === true,
             decks: [0, 1].map(p => Array.isArray(saved.decks?.[p]) ? [0, 1, 2].map(i => String(saved.decks[p][i] || '')) : ['', '', '']),
             target: Math.min(99, Math.max(1, Number(saved.target) || defaults.target)),
             timings,
@@ -1258,96 +1264,81 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         return new Promise(resolve => setTimeout(resolve, milliseconds));
       }
 
- function showCountdown() {
-  sequenceActive = true;
-  countdownStarted = false;
-  countdownOverlay.hidden = false;
-  
-  // Se l'auto-start è 0, salta del tutto la schermata "In posizione" e la barra
-  if (autoStartDelay === 0) {
-    countdownReady.hidden = true;
-    startCountdown();
-    return;
-  }
+      async function openCountdown() {
+        if (winnerIndex() !== -1 || sequenceActive || roundActive) return;
+        correctionMode = false;
+        state.repeatReason = '';
+        sequenceActive = true;
+        countdownStarted = false;
+        countdownReady.hidden = true;
+        countdownValue.hidden = false;
+        countdownValue.className = 'countdown-value round';
+        countdownValue.textContent = `ROUND ${state.history.length + 1}`;
+        countdownOverlay.hidden = false;
+        render();
 
-  // Configurazione standard con auto-start > 0
-  countdownReady.hidden = false;
-  countdownValue.hidden = true;
-  autoStartFill.classList.remove('active');
-  autoStartFill.style.transition = 'none';
-  autoStartFill.style.width = '0%';
+        await wait(state.timings.roundIntro);
+        if (!sequenceActive) return;
 
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      autoStartFill.style.transition = `width ${autoStartDelay}ms linear`;
-      autoStartFill.classList.add('active');
-    });
-  });
+        if (state.skipCountdown) {
+          countdownOverlay.hidden = true;
+          sequenceActive = false;
+          roundActive = true;
+          render();
+          return;
+        }
 
-  autoStartTimer = setTimeout(() => {
-    startCountdown();
-  }, autoStartDelay);
-}
+        if (countdownStarted) return;
+        countdownValue.hidden = true;
+        countdownReady.hidden = false;
+        autoStartFill.classList.remove('active');
+        void autoStartFill.offsetWidth;
+        autoStartFill.style.animationDuration = `${state.timings.positionTimeout}ms`;
+        autoStartFill.classList.add('active');
+        countdownStartBtn.focus();
+        autoStartTimer = setTimeout(startCountdown, state.timings.positionTimeout);
+      }
 
-async function startCountdown() {
-  if (!sequenceActive || countdownStarted) return;
-  
-  // Interrompe immediatamente il timer dell'auto-start ed elimina la transizione visiva
-  if (autoStartTimer !== null) {
-    clearTimeout(autoStartTimer);
-    autoStartTimer = null;
-  }
-  autoStartFill.classList.remove('active');
-  autoStartFill.style.transition = 'none';
-  autoStartFill.style.width = '0%';
-  
-  countdownStarted = true;
+      async function startCountdown() {
+        if (!sequenceActive || countdownStarted) return;
+        if (autoStartTimer !== null) {
+          clearTimeout(autoStartTimer);
+          autoStartTimer = null;
+        }
+        countdownStarted = true;
+        autoStartFill.classList.remove('active');
+        countdownReady.hidden = true;
+        countdownValue.hidden = false;
 
-  const steps = [
-    { text: '3', duration: state.timings.three, className: '' },
-    { text: '2', duration: state.timings.two, className: '' },
-    { text: '1', duration: state.timings.one, className: '' },
-    { text: 'PRONTI', duration: state.timings.ready, className: 'word' },
-    { text: 'LANCIO!', duration: state.timings.launch, className: 'word launch' }
-  ];
+        const steps = [
+          { text: '3', duration: state.timings.three, className: '' },
+          { text: '2', duration: state.timings.two, className: '' },
+          { text: '1', duration: state.timings.one, className: '' },
+          { text: 'PRONTI', duration: state.timings.ready, className: 'word' },
+          { text: 'LANCIO!', duration: state.timings.launch, className: 'word launch' }
+        ];
 
-  const totalCountdownTime = steps.reduce((sum, step) => sum + step.duration, 0);
+        for (const step of steps) {
+          countdownValue.className = `countdown-value ${step.className}`.trim();
+          countdownValue.textContent = step.text;
+          if (step.text === 'LANCIO!' && navigator.vibrate) navigator.vibrate([60, 35, 100]);
+          await wait(step.duration);
+        }
 
-  // Se i tempi della sequenza sono tutti 0, sblocca l'interfaccia all'istante
-  if (totalCountdownTime === 0) {
-    countdownOverlay.hidden = true;
-    sequenceActive = false;
-    countdownStarted = false;
-    roundActive = true;
-    render();
-    return;
-  }
+        countdownOverlay.hidden = true;
+        sequenceActive = false;
+        countdownStarted = false;
+        roundActive = true;
+        render();
+      }
 
-  // Esecuzione sequenza se i tempi > 0
-  countdownReady.hidden = true;
-  countdownValue.hidden = false;
-
-  for (const step of steps) {
-    if (step.duration > 0) {
-      countdownValue.className = `countdown-value ${step.className}`.trim();
-      countdownValue.textContent = step.text;
-      if (step.text === 'LANCIO!' && navigator.vibrate) navigator.vibrate([60, 35, 100]);
-      await wait(step.duration);
-    }
-  }
-
-  countdownOverlay.hidden = true;
-  sequenceActive = false;
-  countdownStarted = false;
-  roundActive = true;
-  render();
-}
       function openSettings() {
         draftColors = [...state.colors];
         draftLogoData = state.logoData;
         $('#targetInput').value = state.target;
         $('#foulsAllowedInput').value = state.foulsAllowed;
         $('#simpleModeInput').checked = state.simpleMode;
+        $('#skipCountdownInput').checked = state.skipCountdown;
         $('#timingRoundInput').value = state.timings.roundIntro / 1000;
         $('#timingPositionInput').value = state.timings.positionTimeout / 1000;
         $('#timingThreeInput').value = state.timings.three / 1000;
@@ -1521,6 +1512,7 @@ async function startCountdown() {
         state.target = target;
         state.foulsAllowed = foulsAllowed;
         state.simpleMode = $('#simpleModeInput').checked;
+        state.skipCountdown = $('#skipCountdownInput').checked;
         state.timings = {
           roundIntro: readTiming('#timingRoundInput', defaults.timings.roundIntro, 0),
           positionTimeout: readTiming('#timingPositionInput', defaults.timings.positionTimeout, 1000),
