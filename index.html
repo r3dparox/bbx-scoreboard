@@ -1283,18 +1283,28 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         autoStartTimer = setTimeout(startCountdown, state.timings.positionTimeout);
       }
 
-      async function startCountdown() {
-        if (!sequenceActive || countdownStarted) return;
-        if (autoStartTimer !== null) {
-          clearTimeout(autoStartTimer);
-          autoStartTimer = null;
-        }
-        countdownStarted = true;
-        autoStartFill.classList.remove('active');
-        const totalCountdownTime = steps.reduce((sum, step) => sum + step.duration, 0);
+async function startCountdown() {
+  if (!sequenceActive || countdownStarted) return;
+  if (autoStartTimer !== null) {
+    clearTimeout(autoStartTimer);
+    autoStartTimer = null;
+  }
+  countdownStarted = true;
+  autoStartFill.classList.remove('active');
 
-    // Se tutti i tempi sono 0, chiude subito l'overlay e abilita i pulsanti
-    if (totalCountdownTime === 0) {
+  // Controllo se tutti i tempi del countdown sono azzerati
+  const steps = [
+    { text: '3', duration: state.timings.three, className: '' },
+    { text: '2', duration: state.timings.two, className: '' },
+    { text: '1', duration: state.timings.one, className: '' },
+    { text: 'PRONTI', duration: state.timings.ready, className: 'word' },
+    { text: 'LANCIO!', duration: state.timings.launch, className: 'word launch' }
+  ];
+
+  const totalCountdownTime = steps.reduce((sum, step) => sum + step.duration, 0);
+
+  // Se tutti i tempi sono 0, chiude subito l'overlay e abilita i pulsanti
+  if (totalCountdownTime === 0) {
     countdownOverlay.hidden = true;
     sequenceActive = false;
     countdownStarted = false;
@@ -1302,30 +1312,26 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     render();
     return;
   }
-        countdownReady.hidden = true;
-        countdownValue.hidden = false;
 
-        const steps = [
-          { text: '3', duration: state.timings.three, className: '' },
-          { text: '2', duration: state.timings.two, className: '' },
-          { text: '1', duration: state.timings.one, className: '' },
-          { text: 'PRONTI', duration: state.timings.ready, className: 'word' },
-          { text: 'LANCIO!', duration: state.timings.launch, className: 'word launch' }
-        ];
+  // Altrimenti esegue la sequenza standard
+  countdownReady.hidden = true;
+  countdownValue.hidden = false;
 
-        for (const step of steps) {
-          countdownValue.className = `countdown-value ${step.className}`.trim();
-          countdownValue.textContent = step.text;
-          if (step.text === 'LANCIO!' && navigator.vibrate) navigator.vibrate([60, 35, 100]);
-          await wait(step.duration);
-        }
+  for (const step of steps) {
+    if (step.duration > 0) {
+      countdownValue.className = `countdown-value ${step.className}`.trim();
+      countdownValue.textContent = step.text;
+      if (step.text === 'LANCIO!' && navigator.vibrate) navigator.vibrate([60, 35, 100]);
+      await wait(step.duration);
+    }
+  }
 
-        countdownOverlay.hidden = true;
-        sequenceActive = false;
-        countdownStarted = false;
-        roundActive = true;
-        render();
-      }
+  countdownOverlay.hidden = true;
+  sequenceActive = false;
+  countdownStarted = false;
+  roundActive = true;
+  render();
+}
 
       function openSettings() {
         draftColors = [...state.colors];
