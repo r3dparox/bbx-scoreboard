@@ -1291,6 +1291,17 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         }
         countdownStarted = true;
         autoStartFill.classList.remove('active');
+        const totalCountdownTime = steps.reduce((sum, step) => sum + step.duration, 0);
+
+    // Se tutti i tempi sono 0, chiude subito l'overlay e abilita i pulsanti
+    if (totalCountdownTime === 0) {
+    countdownOverlay.hidden = true;
+    sequenceActive = false;
+    countdownStarted = false;
+    roundActive = true;
+    render();
+    return;
+  }
         countdownReady.hidden = true;
         countdownValue.hidden = false;
 
