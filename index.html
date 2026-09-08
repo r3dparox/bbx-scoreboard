@@ -1258,41 +1258,51 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         return new Promise(resolve => setTimeout(resolve, milliseconds));
       }
 
-      async function openCountdown() {
-        if (winnerIndex() !== -1 || sequenceActive || roundActive) return;
-        correctionMode = false;
-        state.repeatReason = '';
-        sequenceActive = true;
-        countdownStarted = false;
-        countdownReady.hidden = true;
-        countdownValue.hidden = false;
-        countdownValue.className = 'countdown-value round';
-        countdownValue.textContent = `ROUND ${state.history.length + 1}`;
-        countdownOverlay.hidden = false;
-        render();
+ function showCountdown() {
+  sequenceActive = true;
+  countdownStarted = false;
+  countdownOverlay.hidden = false;
+  
+  // Se l'auto-start è 0, salta del tutto la schermata "In posizione" e la barra
+  if (autoStartDelay === 0) {
+    countdownReady.hidden = true;
+    startCountdown();
+    return;
+  }
 
-        await wait(state.timings.roundIntro);
-        if (!sequenceActive || countdownStarted) return;
-        countdownValue.hidden = true;
-        countdownReady.hidden = false;
-        autoStartFill.classList.remove('active');
-        void autoStartFill.offsetWidth;
-        autoStartFill.style.animationDuration = `${state.timings.positionTimeout}ms`;
-        autoStartFill.classList.add('active');
-        countdownStartBtn.focus();
-        autoStartTimer = setTimeout(startCountdown, state.timings.positionTimeout);
-      }
+  // Configurazione standard con auto-start > 0
+  countdownReady.hidden = false;
+  countdownValue.hidden = true;
+  autoStartFill.classList.remove('active');
+  autoStartFill.style.transition = 'none';
+  autoStartFill.style.width = '0%';
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      autoStartFill.style.transition = `width ${autoStartDelay}ms linear`;
+      autoStartFill.classList.add('active');
+    });
+  });
+
+  autoStartTimer = setTimeout(() => {
+    startCountdown();
+  }, autoStartDelay);
+}
 
 async function startCountdown() {
   if (!sequenceActive || countdownStarted) return;
+  
+  // Interrompe immediatamente il timer dell'auto-start ed elimina la transizione visiva
   if (autoStartTimer !== null) {
     clearTimeout(autoStartTimer);
     autoStartTimer = null;
   }
-  countdownStarted = true;
   autoStartFill.classList.remove('active');
+  autoStartFill.style.transition = 'none';
+  autoStartFill.style.width = '0%';
+  
+  countdownStarted = true;
 
-  // Controllo se tutti i tempi del countdown sono azzerati
   const steps = [
     { text: '3', duration: state.timings.three, className: '' },
     { text: '2', duration: state.timings.two, className: '' },
@@ -1303,7 +1313,7 @@ async function startCountdown() {
 
   const totalCountdownTime = steps.reduce((sum, step) => sum + step.duration, 0);
 
-  // Se tutti i tempi sono 0, chiude subito l'overlay e abilita i pulsanti
+  // Se i tempi della sequenza sono tutti 0, sblocca l'interfaccia all'istante
   if (totalCountdownTime === 0) {
     countdownOverlay.hidden = true;
     sequenceActive = false;
@@ -1313,7 +1323,7 @@ async function startCountdown() {
     return;
   }
 
-  // Altrimenti esegue la sequenza standard
+  // Esecuzione sequenza se i tempi > 0
   countdownReady.hidden = true;
   countdownValue.hidden = false;
 
@@ -1332,7 +1342,6 @@ async function startCountdown() {
   roundActive = true;
   render();
 }
-
       function openSettings() {
         draftColors = [...state.colors];
         draftLogoData = state.logoData;
