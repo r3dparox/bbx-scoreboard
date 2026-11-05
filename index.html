@@ -20,6 +20,10 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="theme-color" content="#090b11">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Scoreboard">
   <title>Scoreboard</title>
   <style>
     :root {
@@ -107,6 +111,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     }
     .icon-btn { width: 44px; padding: 0; font-size: 1.1rem; }
     .play-row { display: flex; justify-content: center; }
+    .play-row[hidden] { display: none; }
+    .utility-btn:disabled { opacity: .4; cursor: default; }
     .play-btn {
       width: min(440px, 100%);
       min-height: 54px;
@@ -136,10 +142,15 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     }
     .status strong { color: var(--text); }
     .status.finished { border-color: rgba(255,201,40,.65); color: var(--gold); }
+    .status-row { display: flex; gap: 8px; align-items: stretch; }
+    .status-row .status { flex: 1; min-width: 0; }
+    .focus-exit { display: none; flex: 0 0 auto; min-height: 42px; }
+    .focus-mode .focus-exit { display: block; }
+    .focus-mode .topbar { display: none; }
 
     .arena {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 9px;
       flex: 1;
     }
@@ -175,15 +186,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .deck-line {
-      min-height: 1.3rem;
-      margin-top: 5px;
-      color: var(--muted);
-      font-size: clamp(.72rem, 1.8vw, .84rem);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
 
     .score-wrap {
       flex: 1;
@@ -202,32 +204,40 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       text-shadow: 0 8px 30px rgba(0,0,0,.35);
     }
 
-    .bey-selector {
-      display: flex;
+    .bey-selector { display: none; }
+    .has-decks .bey-selector {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 6px;
-      flex-wrap: wrap;
-      justify-content: center;
-      padding: 6px 4px;
-      min-height: 36px;
+      padding: 6px 0;
     }
     .bey-btn {
-      flex: 1 1 auto;
       min-width: 0;
-      max-width: 140px;
-      padding: 6px 8px;
+      height: 48px;
+      padding: 4px 6px;
       border: 1px solid #343d4e;
       border-radius: 10px;
       background: linear-gradient(180deg, #232a39, #171c28);
       color: var(--text);
-      font-size: clamp(.7rem, 1.8vw, .85rem);
+      font-size: clamp(.68rem, 1.7vw, .82rem);
       font-weight: 800;
-      letter-spacing: .03em;
+      line-height: 1.12;
+      letter-spacing: .02em;
       cursor: pointer;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
       transition: border-color .15s, background .15s;
     }
+    .bey-text {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      overflow-wrap: anywhere;
+    }
+    .bey-btn.placeholder { visibility: hidden; pointer-events: none; }
     .bey-btn:hover:not(:disabled) { border-color: var(--accent); }
     .bey-btn.selected {
       border-color: var(--accent);
@@ -238,14 +248,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       opacity: .35;
       cursor: default;
       border-color: #353a44;
-    }
-    .bey-reshuffle {
-      font-size: clamp(.6rem, 1.5vw, .72rem);
-      color: var(--gold);
-      text-align: center;
-      padding: 2px 0 4px;
-      letter-spacing: .04em;
-      font-weight: 800;
     }
 
     .finish-grid {
@@ -286,6 +288,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       cursor: default;
     }
     .finish-btn:disabled .label, .finish-btn:disabled .points { color: #666d78; }
+    body:not(.simple-mode) .finish-btn[data-finish="Spin Finish"],
+    body:not(.simple-mode) .finish-btn[data-finish="Xtreme Finish"] { grid-column: 1 / -1; }
     .foul-btn {
       width: 100%;
       min-height: 52px;
@@ -304,28 +308,22 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     .foul-btn .foul-count { color: var(--muted); font-size: .78rem; font-weight: 850; }
     .foul-btn:disabled { border-color: #353a44; background: #1b1e25; cursor: default; }
     .foul-btn:disabled .label, .foul-btn:disabled .foul-count { color: #666d78; }
-    .draw-column { display: flex; align-self: stretch; }
+    .draw-row { display: flex; }
     .draw-btn {
-      width: clamp(54px, 6.5vw, 76px);
-      min-height: 180px;
-      border: 1px solid rgba(255,201,40,.55);
+      width: 100%;
+      min-height: 54px;
+      border: 1px solid rgba(255,201,40,.45);
       border-radius: 13px;
       background: linear-gradient(180deg, #302c20, #211f1a);
-      padding: 12px 6px;
+      padding: 8px 14px;
       cursor: pointer;
       display: flex;
-      flex-direction: column;
       justify-content: center;
-      align-items: center;
-      gap: 18px;
+      align-items: baseline;
+      gap: 12px;
     }
-    .draw-btn .label {
-      color: var(--gold);
-      font-weight: 1000;
-      font-size: .78rem;
-      line-height: 1.04;
-    }
-    .draw-btn .points { color: var(--text); font-size: 2.3rem; line-height: 1; font-weight: 1000; }
+    .draw-btn .label { color: var(--gold); font-weight: 1000; letter-spacing: .1em; font-size: 1rem; }
+    .draw-btn .points { color: var(--muted); font-size: .85rem; font-weight: 850; }
     .draw-btn:disabled { border-color: #353a44; background: #1b1e25; cursor: default; }
     .draw-btn:disabled .label, .draw-btn:disabled .points { color: #666d78; }
     .simple-mode .finish-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -341,10 +339,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       line-height: 1;
     }
     .simple-mode .finish-btn:disabled .points { color: #666d78; }
-    .simple-mode .draw-btn { min-height: 180px; }
-    .simple-mode .draw-btn .label { display: none; }
-    .simple-mode .draw-btn .points { color: var(--gold); font-size: clamp(3rem, 7vw, 5.5rem); line-height: 1; }
-    .simple-mode .draw-btn:disabled .points { color: #666d78; }
 
     .bottom {
       display: grid;
@@ -619,15 +613,47 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       text-shadow: 0 0 65px rgba(255,201,40,.7);
     }
 
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(max(14px, env(safe-area-inset-bottom)) + 60px);
+      transform: translateX(-50%);
+      z-index: 900;
+      width: min(520px, calc(100% - 24px));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 10px 10px 16px;
+      border: 1px solid rgba(255,201,40,.55);
+      border-radius: 14px;
+      background: rgba(16,20,30,.96);
+      box-shadow: 0 14px 50px rgba(0,0,0,.6);
+      font-size: .88rem;
+      font-weight: 750;
+    }
+    .toast[hidden] { display: none; }
+    .toast button {
+      border: 1px solid rgba(255,201,40,.7);
+      border-radius: 10px;
+      background: var(--gold);
+      color: #171208;
+      min-height: 40px;
+      padding: 0 16px;
+      font-weight: 900;
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+
     @media (max-width: 720px) {
       .app { gap: 8px; padding-top: max(8px, env(safe-area-inset-top)); }
       .brand-copy span { display: none; }
       .arena { gap: 6px; }
-      .draw-btn { width: 46px; padding-inline: 3px; }
       .player { padding: 11px 8px 9px; border-radius: 15px; }
       .score-wrap { min-height: 125px; }
-      .finish-grid { grid-template-columns: 1fr; gap: 6px; }
+      .finish-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
       .finish-btn { min-height: 58px; }
+      .finish-btn[data-finish="Burst Finish"] .label, .finish-btn[data-finish="Over Finish"] .label { font-size: 1rem; letter-spacing: 0; }
       .finish-btn .points { font-size: .95rem; }
       .finish-btn .label { font-size: 1.15rem; }
       .bottom { grid-template-columns: auto 1fr auto; }
@@ -635,6 +661,13 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       .history-label { display: none; }
       .settings-grid { grid-template-columns: 1fr; gap: 0; }
       .timing-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Telefono in verticale: bey impilati a tutta larghezza per leggere i nomi interi */
+    @media (max-width: 720px) and (orientation: portrait) {
+      .has-decks .bey-selector { grid-template-columns: 1fr; gap: 5px; }
+      .bey-btn { height: 38px; }
+      .bey-text { -webkit-line-clamp: 1; }
     }
 
     @media (max-width: 380px) {
@@ -648,7 +681,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       .score { font-size: 6.2rem; }
       .finish-btn { min-height: 54px; padding: 6px 3px; }
       .finish-btn .label { font-size: .66rem; }
-      .draw-btn { width: 40px; }
     }
 
     @media (orientation: landscape) and (max-height: 600px) {
@@ -661,6 +693,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       .score-wrap { min-height: 74px; }
       .score { font-size: min(19vh, 7rem); }
       .finish-grid { grid-template-columns: repeat(4, 1fr); }
+      body:not(.simple-mode) .finish-btn[data-finish] { grid-column: auto; }
+      .bey-btn { height: 40px; font-size: .64rem; padding: 3px 4px; }
+      .has-decks .bey-selector { padding: 4px 0; }
       .finish-btn { min-height: 57px; padding: 5px 3px; }
       .finish-btn .points { font-size: .85rem; }
       .finish-btn .label { font-size: 1rem; }
@@ -685,9 +720,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       </div>
     </header>
 
-    <div class="status" id="status" aria-live="polite"></div>
+    <div class="status-row">
+      <div class="status" id="status" aria-live="polite"></div>
+      <button class="icon-btn focus-exit" id="focusExitBtn" type="button" title="Esci da schermo intero" aria-label="Esci da schermo intero">✕</button>
+    </div>
 
-    <div class="play-row">
+    <div class="play-row" id="playRow">
       <button class="utility-btn play-btn" id="playBtn" type="button" title="Avvia il round">▶ PLAY</button>
     </div>
 
@@ -695,7 +733,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       <article class="player red" data-player="0">
         <header class="player-head">
           <h1 class="player-name" id="name0">Giocatore 1</h1>
-          <div class="deck-line" id="deck0"></div>
         </header>
         <div class="score-wrap"><div class="score" id="score0">0</div></div>
         <div class="bey-selector" id="beySelector0"></div>
@@ -708,14 +745,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         <button class="foul-btn" data-player="0" type="button"><span class="label">FALLO</span><span class="foul-count" id="foulCount0"></span></button>
       </article>
 
-      <div class="draw-column">
-        <button class="draw-btn" id="drawBtn" type="button" aria-label="Pareggio, zero punti"><span class="label" aria-hidden="true">P<br>A<br>R<br>E<br>G<br>G<br>I<br>O</span><span class="points" aria-hidden="true">X</span></button>
-      </div>
-
       <article class="player blue" data-player="1">
         <header class="player-head">
           <h1 class="player-name" id="name1">Giocatore 2</h1>
-          <div class="deck-line" id="deck1"></div>
         </header>
         <div class="score-wrap"><div class="score" id="score1">0</div></div>
         <div class="bey-selector" id="beySelector1"></div>
@@ -728,6 +760,10 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         <button class="foul-btn" data-player="1" type="button"><span class="label">FALLO</span><span class="foul-count" id="foulCount1"></span></button>
       </article>
     </section>
+
+    <div class="draw-row">
+      <button class="draw-btn" id="drawBtn" type="button" aria-label="Pareggio, zero punti"><span class="label">PAREGGIO</span><span class="points">0 punti · si ripete il lancio</span></button>
+    </div>
 
     <footer class="bottom">
       <button class="utility-btn" id="undoBtn" type="button">↶ Annulla</button>
@@ -866,8 +902,14 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       <div class="dialog-body">
         <div class="session-list" id="sessionList"></div>
       </div>
+      <div class="dialog-actions">
+        <button class="utility-btn" id="exportCsvBtn" type="button">⬇ Scarica CSV</button>
+        <button class="utility-btn" id="exportJsonBtn" type="button">⬇ Scarica JSON</button>
+      </div>
     </div>
   </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toastText"></span><button type="button" id="toastUndo">Annulla</button></div>
 
   <div class="countdown-overlay" id="countdownOverlay" role="dialog" aria-modal="true" aria-label="Avvio del round" hidden>
     <div class="countdown-card">
@@ -990,6 +1032,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       let countdownStarted = false;
       let roundActive = false;
       let correctionMode = false;
+      let lockUntil = 0;
+      let toastTimer = null;
+      let toastAction = null;
       let autoStartTimer = null;
       let draftColors = [...state.colors];
       let draftLogoData = state.logoData;
@@ -1016,15 +1061,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
           $(`#name${p}`).textContent = state.names[p];
           $(`#score${p}`).textContent = state.scores[p];
           $(`#foulCount${p}`).textContent = `${state.fouls[p]} / ${state.foulsAllowed}`;
-          const filled = state.decks[p].filter(Boolean);
-          if (filled.length) {
-            const sel = state.selectedBeys[p];
-            $(`#deck${p}`).textContent = sel ? `▶ ${sel}` : filled.join(' · ');
-            $(`#deck${p}`).title = filled.join('\n');
-          } else {
-            $(`#deck${p}`).textContent = '';
-            $(`#deck${p}`).title = '';
-          }
         });
         renderBeySelectors();
 
@@ -1035,7 +1071,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         $$('.foul-btn').forEach(btn => btn.disabled = !scoreEnabled);
         $('#drawBtn').disabled = !scoreEnabled;
         $('#playBtn').disabled = winner !== -1 || sequenceActive || roundActive;
-        $('#undoBtn').disabled = state.history.length === 0 || sequenceActive || roundActive;
+        $('#playRow').hidden = state.skipCountdown && roundActive;
+        $('#undoBtn').disabled = state.history.length === 0 || sequenceActive || (roundActive && !state.skipCountdown);
 
         const status = $('#status');
         if (winner !== -1) {
@@ -1050,7 +1087,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         } else if (roundActive) {
           status.className = 'status';
           const fouls = foulStatus();
-          status.innerHTML = `Round <strong>${state.history.length + 1}</strong> in corso · registra l’esito${fouls ? ` · ${fouls}` : ''}`;
+          const drawNote = state.repeatReason === 'draw' ? '<strong>Pareggio</strong> · 0 punti · si ripete il lancio' : '';
+          const extra = [drawNote, fouls, reshuffleNote()].filter(Boolean).join(' · ');
+          status.innerHTML = `Round <strong>${state.history.length + 1}</strong> in corso · registra l’esito${extra ? ` · ${extra}` : ''}`;
         } else {
           status.className = 'status';
           const round = state.history.length + 1;
@@ -1058,7 +1097,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
           const repeat = state.repeatReason === 'draw' ? '<strong>Pareggio</strong> · 0 punti' : '';
           status.innerHTML = repeat || fouls
             ? `Round <strong>${round}</strong> · ${[repeat, fouls].filter(Boolean).join(' · ')} · premi <strong>PLAY</strong> per ripetere il lancio`
-            : `Round <strong>${round}</strong> · premi <strong>PLAY</strong> per iniziare`;
+            : `Round <strong>${round}</strong>${reshuffleNote() ? ` · ${reshuffleNote()}` : ''} · premi <strong>PLAY</strong> per ${state.history.length ? 'continuare' : 'iniziare'}`;
         }
 
         const history = $('#historyItems');
@@ -1127,17 +1166,16 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
       function renderBeySelectors() {
         const winner = winnerIndex();
-        const roundNumber = state.history.length + 1;
-        const currentCycle = Math.floor((roundNumber - 1) / 3);
-        const prevCycle = Math.floor((roundNumber - 2) / 3);
-        const isReshuffle = roundNumber > 1 && currentCycle !== prevCycle;
+        const decks = state.decks.map(deck => deck.filter(Boolean));
+        const rows = Math.max(decks[0].length, decks[1].length);
+        document.body.classList.toggle('has-decks', rows > 0);
 
         [0, 1].forEach(p => {
           const box = $(`#beySelector${p}`);
           box.replaceChildren();
-          const deck = state.decks[p].filter(Boolean);
-          if (!deck.length) return;
+          if (!rows) return;
 
+          const deck = decks[p];
           const usedThisCycle = beyUsedInCycle(p);
           const available = deck.filter(bey => !usedThisCycle.has(bey));
 
@@ -1147,22 +1185,26 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
             save();
           }
 
-          // Mostra indicatore reshuffle
-          if (isReshuffle && !roundActive) {
-            const tag = document.createElement('div');
-            tag.className = 'bey-reshuffle';
-            tag.textContent = '🔄 RESHUFFLE';
-            box.append(tag);
-          }
-
           const selected = state.selectedBeys[p];
           const isForced = available.length === 1;
 
-          deck.forEach(bey => {
+          // Stesso numero di righe per entrambi i giocatori: gli slot vuoti restano come segnaposto invisibili
+          for (let i = 0; i < rows; i++) {
+            const bey = deck[i];
+            if (!bey) {
+              const placeholder = document.createElement('div');
+              placeholder.className = 'bey-btn placeholder';
+              placeholder.setAttribute('aria-hidden', 'true');
+              box.append(placeholder);
+              continue;
+            }
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'bey-btn' + (selected === bey ? ' selected' : '');
-            btn.textContent = isForced && available[0] === bey ? bey + ' ⚡' : bey;
+            const text = document.createElement('span');
+            text.className = 'bey-text';
+            text.textContent = isForced && available[0] === bey ? bey + ' ⚡' : bey;
+            btn.append(text);
             const usedAndNotSelected = usedThisCycle.has(bey) && selected !== bey;
             btn.disabled = usedAndNotSelected || winner !== -1;
             btn.title = isForced && available[0] === bey ? 'Bey obbligato (unico rimasto)' : usedAndNotSelected ? 'Già usato in questo ciclo' : bey;
@@ -1176,60 +1218,104 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
               render();
             });
             box.append(btn);
-          });
+          }
         });
       }
 
+      function canScore() {
+        return winnerIndex() === -1 && !sequenceActive && (roundActive || correctionMode) && Date.now() >= lockUntil;
+      }
+
+      function reshuffleNote() {
+        if (!state.decks.some(deck => deck.some(Boolean))) return '';
+        const played = state.history.length;
+        return played > 0 && played % 3 === 0 ? '🔄 <strong>RESHUFFLE</strong> · tutti i bey tornano disponibili' : '';
+      }
+
+      function showToast(text, onAction) {
+        toastAction = onAction;
+        $('#toastText').textContent = text;
+        $('#toast').hidden = false;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(hideToast, 4500);
+      }
+
+      function hideToast() {
+        clearTimeout(toastTimer);
+        toastTimer = null;
+        toastAction = null;
+        $('#toast').hidden = true;
+      }
+
+      // Dopo la chiusura di un round: breve blocco anti doppio tocco, poi vittoria oppure avviso con Annulla
+      function afterRoundClosed(message) {
+        lockUntil = Date.now() + 600;
+        const winner = winnerIndex();
+        if (winner !== -1) {
+          hideToast();
+          showWinner(winner);
+        } else {
+          showToast(message, undo);
+        }
+      }
+
       function addPoints(player, points, finish) {
-        if (winnerIndex() !== -1 || sequenceActive || (!roundActive && !correctionMode)) return;
+        if (!canScore()) return;
         const bey = [...state.selectedBeys];
         state.scores[player] += points;
-        state.history.push({ player, points, finish, bey });
+        state.history.push({ player, points, finish, bey, at: new Date().toISOString() });
         state.fouls = [0, 0];
         state.repeatReason = '';
         state.selectedBeys = [null, null];
-        roundActive = false;
+        // Senza countdown il round successivo parte da solo: niente PLAY a ogni round
+        roundActive = state.skipCountdown;
         correctionMode = false;
         if (navigator.vibrate) navigator.vibrate(points === 3 ? [35, 30, 35] : 35);
         render();
-        const winner = winnerIndex();
-        if (winner !== -1) showWinner(winner);
+        afterRoundClosed(`Round ${state.history.length} chiuso · ${state.names[player]} +${points}`);
       }
 
       function registerFoul(offender) {
-        if (winnerIndex() !== -1 || sequenceActive || (!roundActive && !correctionMode)) return;
+        if (!canScore()) return;
         state.fouls[offender] += 1;
         const bey = [...state.selectedBeys];
 
         if (state.fouls[offender] > state.foulsAllowed) {
           const player = 1 - offender;
           state.scores[player] += 1;
-          state.history.push({ player, points: 1, finish: 'Foul', offender, bey });
+          state.history.push({ player, points: 1, finish: 'Foul', offender, bey, at: new Date().toISOString() });
           state.fouls = [0, 0];
           state.repeatReason = '';
           state.selectedBeys = [null, null];
-          roundActive = false;
+          roundActive = state.skipCountdown;
           correctionMode = false;
           if (navigator.vibrate) navigator.vibrate([70, 35, 70]);
           render();
-          const winner = winnerIndex();
-          if (winner !== -1) showWinner(winner);
+          afterRoundClosed(`Round ${state.history.length} chiuso · fallo di ${state.names[offender]}, +1 ${state.names[player]}`);
           return;
         }
 
         state.repeatReason = 'foul';
-        if (!correctionMode) roundActive = false;
+        if (!correctionMode && !state.skipCountdown) roundActive = false;
         if (navigator.vibrate) navigator.vibrate(45);
         render();
       }
 
       function registerDraw() {
-        if (winnerIndex() !== -1 || sequenceActive || (!roundActive && !correctionMode)) return;
+        if (!canScore()) return;
+        const previous = { roundActive, correctionMode };
         state.repeatReason = 'draw';
-        roundActive = false;
+        roundActive = state.skipCountdown;
         correctionMode = false;
         if (navigator.vibrate) navigator.vibrate([35, 25, 35]);
         render();
+        lockUntil = Date.now() + 600;
+        showToast('Pareggio · 0 punti', () => {
+          state.repeatReason = '';
+          roundActive = previous.roundActive;
+          correctionMode = previous.correctionMode;
+          render();
+        });
       }
 
       function undo() {
@@ -1238,14 +1324,18 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         state.scores[last.player] = Math.max(0, state.scores[last.player] - last.points);
         state.fouls = [0, 0];
         state.repeatReason = '';
-        state.selectedBeys = [null, null];
-        roundActive = false;
-        correctionMode = true;
+        // Una correzione riapre il round con i bey che erano stati registrati
+        state.selectedBeys = Array.isArray(last.bey) ? [last.bey[0] || null, last.bey[1] || null] : [null, null];
+        roundActive = state.skipCountdown;
+        correctionMode = !state.skipCountdown;
+        lockUntil = 0;
+        hideToast();
         if (winnerDialog.open) winnerDialog.close();
         render();
       }
 
       function newGame() {
+        hideToast();
         archiveCurrentGame();
         state.scores = [0, 0];
         state.history = [];
@@ -1279,6 +1369,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
       function renderSessionHistory() {
         const list = $('#sessionList');
+        const hasData = state.sessionGames.some(game => Array.isArray(game.history) && game.history.length) || state.history.length > 0;
+        $('#exportCsvBtn').disabled = !hasData;
+        $('#exportJsonBtn').disabled = !hasData;
         list.replaceChildren();
         const games = state.sessionGames.map(game => ({ ...game, current: false }));
         if (state.history.length) games.push({ ...gameSnapshot(), current: true });
@@ -1351,12 +1444,97 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         });
       }
 
+      function buildExport() {
+        const games = state.sessionGames.map(game => ({ ...game, current: false }));
+        if (state.history.length) games.push({ ...gameSnapshot(), current: true });
+        return games.map((game, gameIndex) => {
+          const names = [0, 1].map(p => (Array.isArray(game.names) && game.names[p]) || defaults.names[p]);
+          const running = [0, 0];
+          const rounds = (Array.isArray(game.history) ? game.history : []).map((round, roundIndex) => {
+            const player = Number(round.player) === 1 ? 1 : 0;
+            const points = Number(round.points) || 0;
+            running[player] += points;
+            const isFoul = round.finish === 'Foul';
+            const offender = Number(round.offender) === 1 ? 1 : 0;
+            return {
+              round: roundIndex + 1,
+              vincitore_round: names[player],
+              punti: points,
+              esito: round.finish || '',
+              fallo_di: isFoul ? names[offender] : '',
+              bey_giocatore1: round.bey?.[0] || '',
+              bey_giocatore2: round.bey?.[1] || '',
+              punteggio_giocatore1: running[0],
+              punteggio_giocatore2: running[1],
+              ora: round.at || ''
+            };
+          });
+          const winnerIdx = Number(game.winner);
+          return {
+            partita: gameIndex + 1,
+            stato: game.completed ? 'conclusa' : game.current ? 'in corso' : 'interrotta',
+            giocatore1: names[0],
+            giocatore2: names[1],
+            punti_vittoria: Number(game.target) || null,
+            punteggio_finale: [Number(game.scores?.[0]) || 0, Number(game.scores?.[1]) || 0],
+            vincitore: game.completed && (winnerIdx === 0 || winnerIdx === 1) ? names[winnerIdx] : null,
+            round: rounds
+          };
+        });
+      }
+
+      function csvCell(value) {
+        let text = String(value ?? '');
+        if (typeof value === 'string' && /^[=+\-@\t\r]/.test(text)) text = "'" + text;
+        return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+      }
+
+      function exportCsv(games) {
+        const columns = ['partita', 'stato', 'giocatore1', 'giocatore2', 'punti_vittoria', 'round', 'vincitore_round', 'punti', 'esito', 'fallo_di', 'bey_giocatore1', 'bey_giocatore2', 'punteggio_giocatore1', 'punteggio_giocatore2', 'ora'];
+        const lines = [columns.join(',')];
+        games.forEach(game => {
+          game.round.forEach(round => {
+            const row = { ...game, ...round };
+            lines.push(columns.map(column => csvCell(row[column])).join(','));
+          });
+        });
+        return '﻿' + lines.join('\r\n') + '\r\n';
+      }
+
+      function fileStamp() {
+        const d = new Date();
+        const p = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+      }
+
+      function downloadFile(filename, mime, text) {
+        const url = URL.createObjectURL(new Blob([text], { type: mime }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      }
+
+      function exportSession(kind) {
+        const games = buildExport();
+        if (!games.some(game => game.round.length)) return;
+        if (kind === 'csv') {
+          downloadFile(`storico-round_${fileStamp()}.csv`, 'text/csv;charset=utf-8', exportCsv(games));
+        } else {
+          downloadFile(`storico-round_${fileStamp()}.json`, 'application/json', JSON.stringify({ esportato_il: new Date().toISOString(), partite: games }, null, 2));
+        }
+      }
+
       function resetSession() {
         if (!confirm('Azzerare la partita corrente e tutto lo storico della sessione?')) return;
         state.scores = [0, 0];
         state.history = [];
         state.fouls = [0, 0];
         state.repeatReason = '';
+        hideToast();
         state.sessionGames = [];
         roundActive = false;
         correctionMode = false;
@@ -1377,6 +1555,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
           clearTimeout(autoStartTimer);
           autoStartTimer = null;
         }
+        hideToast();
         localStorage.removeItem(STORAGE_KEY);
         state = cloneDefaults();
         draftColors = [...state.colors];
@@ -1604,6 +1783,13 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         sessionHistoryDialog.showModal();
       });
       $('#closeSessionHistory').addEventListener('click', () => sessionHistoryDialog.close());
+      $('#exportCsvBtn').addEventListener('click', () => exportSession('csv'));
+      $('#exportJsonBtn').addEventListener('click', () => exportSession('json'));
+      $('#toastUndo').addEventListener('click', () => {
+        const action = toastAction;
+        hideToast();
+        if (action) action();
+      });
       $('#playBtn').addEventListener('click', openCountdown);
       $('#randomColorsBtn').addEventListener('click', randomizeColors);
       $('#advancedToggleBtn').addEventListener('click', () => {
@@ -1673,19 +1859,49 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         if (winner !== -1) showWinner(winner);
       });
 
-      $('#fullscreenBtn').addEventListener('click', async () => {
+      // Schermo intero: nasconde l'header e porta la vista sullo stato/Play.
+      // L'API Fullscreen esiste su desktop, Android e iPad ma NON su iPhone né nelle web app installate:
+      // lì il comportamento utile è proprio nascondere l'header.
+      let fullscreenByApi = false;
+
+      function setFocusMode(on) {
+        document.body.classList.toggle('focus-mode', on);
+        $('#fullscreenBtn').setAttribute('aria-pressed', String(on));
+        if (on) window.scrollTo(0, 0);
+      }
+
+      async function toggleFocusMode() {
+        const entering = !document.body.classList.contains('focus-mode');
+        setFocusMode(entering);
         try {
           const fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement;
-          if (fullscreenElement) {
-            const exit = document.exitFullscreen || document.webkitExitFullscreen;
-            if (exit) await exit.call(document);
-          } else {
+          if (entering && !fullscreenElement) {
             const root = document.documentElement;
             const request = root.requestFullscreen || root.webkitRequestFullscreen;
-            if (request) await request.call(root);
+            if (request) {
+              fullscreenByApi = true;
+              await request.call(root);
+            }
+          } else if (!entering && fullscreenElement) {
+            const exit = document.exitFullscreen || document.webkitExitFullscreen;
+            if (exit) await exit.call(document);
           }
-        } catch (_) { /* Fullscreen non disponibile, l'app resta utilizzabile. */ }
-      });
+        } catch (_) {
+          fullscreenByApi = false; /* Fullscreen non disponibile: resta l'header nascosto. */
+        }
+      }
+
+      function onFullscreenChange() {
+        if (!(document.fullscreenElement || document.webkitFullscreenElement) && fullscreenByApi) {
+          fullscreenByApi = false;
+          setFocusMode(false);
+        }
+      }
+
+      document.addEventListener('fullscreenchange', onFullscreenChange);
+      document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+      $('#fullscreenBtn').addEventListener('click', toggleFocusMode);
+      $('#focusExitBtn').addEventListener('click', toggleFocusMode);
 
       [settingsDialog, winnerDialog, sessionHistoryDialog].forEach(dialog => dialog.addEventListener('click', event => {
         if (event.target === dialog && dialog !== winnerDialog) dialog.close();
