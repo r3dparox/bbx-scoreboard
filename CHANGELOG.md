@@ -1,10 +1,10 @@
 # Scoreboard standalone — registro delle versioni
 
-Numerazione separata da scoreboard-tournament. La versione installata si vede in alto nella finestra delle impostazioni.
+La versione installata si vede in alto nella finestra delle impostazioni.
 Qui sotto sono raccolte in un solo elenco tutte le modifiche dalla versione pubblicata stamattina (1.2.0: grafica rivista, Play non necessario a ogni round) alla 1.3.3.
 
 ## 1.3.3 — Annotare i bey dell'avversario
-Riguarda solo `index.html`. Formato dei dati salvati invariato (i bey avversari finiscono nello stesso campo di sempre, `bey_giocatore2` nelle esportazioni).
+Formato dei dati salvati invariato (i bey avversari finiscono nello stesso campo di sempre, `bey_giocatore2` nelle esportazioni).
 
 **Bey dell'avversario "a scoperta"**
 - Si attiva quando il Player 1 ha un deck registrato e il Player 2 no (per esempio "Oppo" lasciato senza deck). Se il Player 2 ha un deck registrato, i pulsanti restano quelli di sempre.
