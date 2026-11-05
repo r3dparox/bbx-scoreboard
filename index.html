@@ -238,6 +238,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       overflow-wrap: anywhere;
     }
     .bey-btn.placeholder { visibility: hidden; pointer-events: none; }
+    .bey-btn.add { border-style: dashed; color: var(--muted); }
+    .bey-btn.add:hover:not(:disabled) { color: var(--accent); }
     .bey-btn:hover:not(:disabled) { border-color: var(--accent); }
     .bey-btn.selected {
       border-color: var(--accent);
@@ -368,7 +370,13 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       padding: 5px 7px;
       font-size: .73rem;
       white-space: nowrap;
+      color: inherit;
+      font: inherit;
+      font-size: .73rem;
     }
+    button.round-chip { cursor: pointer; }
+    button.round-chip:hover { border-color: var(--gold); }
+    .round-chip.missing { border-top-color: rgba(255,201,40,.6); border-right-color: rgba(255,201,40,.6); border-bottom-color: rgba(255,201,40,.6); }
     .round-chip.red { border-left: 3px solid var(--red); }
     .round-chip.blue { border-left: 3px solid var(--blue); }
     .empty-history { color: var(--muted); font-size: .8rem; white-space: nowrap; }
@@ -537,6 +545,20 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     .winner-kicker { color: var(--gold); text-transform: uppercase; letter-spacing: .14em; font-size: .78rem; font-weight: 900; }
     .winner-name { margin: 7px 0 2px; font-size: clamp(2rem, 10vw, 3.8rem); font-weight: 1000; overflow-wrap: anywhere; }
     .winner-score { color: var(--muted); font-size: 1.05rem; }
+    .winner-missing { margin-top: 16px; font-size: .85rem; color: var(--gold); font-weight: 800; }
+    .winner-missing[hidden] { display: none; }
+    .missing-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin-top: 8px; }
+    .dialog-title .app-version { color: var(--muted); font-size: .75rem; font-weight: 700; margin-top: 2px; }
+    .oppo-dialog { width: min(460px, calc(100% - 24px)); }
+    .oppo-known { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .oppo-known .utility-btn.dup { border-color: rgba(255,201,40,.6); }
+    .oppo-known .utility-btn.current { border-color: var(--gold); color: var(--gold); }
+    .oppo-form { display: flex; gap: 8px; margin-top: 14px; }
+    .oppo-form input { flex: 1; min-width: 0; }
+    .oppo-form[hidden], .oppo-known:empty { display: none; }
+    .oppo-rename { margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .session-round.editable { cursor: pointer; }
+    .session-round.editable:hover { outline: 1px solid var(--gold); }
     .winner-actions { display: flex; justify-content: center; gap: 9px; margin-top: 22px; }
 
     .countdown-overlay {
@@ -778,7 +800,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
   <dialog id="settingsDialog">
     <form class="dialog-form" id="settingsForm">
       <div class="dialog-head">
-        <h2>Impostazioni partita</h2>
+        <div class="dialog-title"><h2>Impostazioni partita</h2><div class="app-version" id="appVersionNote"></div></div>
         <button class="icon-btn" id="closeSettings" type="button" aria-label="Chiudi">×</button>
       </div>
       <div class="dialog-body">
@@ -886,9 +908,39 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       <div class="winner-kicker">Vittoria</div>
       <div class="winner-name" id="winnerName"></div>
       <div class="winner-score" id="winnerScore"></div>
+      <div class="winner-missing" id="winnerMissing" hidden>
+        <div id="winnerMissingText"></div>
+        <div class="missing-btns" id="winnerMissingBtns"></div>
+      </div>
       <div class="winner-actions">
         <button class="utility-btn" id="correctBtn" type="button">↶ Correggi</button>
         <button class="utility-btn primary" id="winnerNewGameBtn" type="button">Nuova partita</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="oppo-dialog" id="oppoDialog">
+    <div class="dialog-form">
+      <div class="dialog-head">
+        <h2 id="oppoTitle">Bey avversario</h2>
+        <button class="icon-btn" id="oppoClose" type="button" aria-label="Chiudi">×</button>
+      </div>
+      <div class="dialog-body">
+        <div class="oppo-known" id="oppoKnown"></div>
+        <form class="oppo-form" id="oppoForm" autocomplete="off">
+          <input id="oppoInput" type="text" maxlength="50" list="oppoSuggestions" placeholder="Nome del bey avversario" aria-label="Nome del bey avversario">
+          <datalist id="oppoSuggestions"></datalist>
+          <button class="utility-btn primary" type="submit">Aggiungi</button>
+        </form>
+        <p class="hint" id="oppoHint"></p>
+        <form class="oppo-form oppo-rename" id="oppoRenameForm" autocomplete="off" hidden>
+          <input id="oppoRenameInput" type="text" maxlength="50" aria-label="Nome corretto del bey avversario">
+          <button class="utility-btn" type="submit">Correggi nome</button>
+        </form>
+        <p class="hint" id="oppoRenameHint" hidden></p>
+      </div>
+      <div class="dialog-actions">
+        <button class="utility-btn" id="oppoClear" type="button">Nessun bey</button>
       </div>
     </div>
   </dialog>
@@ -925,6 +977,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     (() => {
       'use strict';
       const STORAGE_KEY = 'beyblade-x-scoreboard-play-v1';
+      // Versione della scoreboard standalone (numerazione separata da quella di scoreboard-tournament)
+      const APP_VERSION = '1.3.3';
       const COLOR_PALETTE = [
         { name: 'Rosso', value: '#ff4d5f' },
         { name: 'Blu', value: '#32b8ff' },
@@ -944,6 +998,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         skipCountdown: false,
         decks: [['', '', ''], ['', '', '']],
         selectedBeys: [null, null],
+        // Bey dell'avversario scoperti durante la battaglia (solo se il giocatore 2 non ha un deck registrato)
+        oppoDeck: [],
         target: 5,
         timings: {
           roundIntro: 2000,
@@ -1004,6 +1060,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
             skipCountdown: saved.skipCountdown === true,
             decks: [0, 1].map(p => Array.isArray(saved.decks?.[p]) ? [0, 1, 2].map(i => String(saved.decks[p][i] || '')) : ['', '', '']),
             selectedBeys: Array.isArray(saved.selectedBeys) ? [saved.selectedBeys[0] || null, saved.selectedBeys[1] || null] : [null, null],
+            oppoDeck: Array.isArray(saved.oppoDeck) ? [...new Set(saved.oppoDeck.map(name => String(name || '').trim().slice(0, 50)).filter(Boolean))].slice(0, 3) : [],
             target: Math.min(99, Math.max(1, Number(saved.target) || defaults.target)),
             timings,
             foulsAllowed,
@@ -1108,17 +1165,29 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
           empty.textContent = 'Nessun round giocato';
           history.append(empty);
         } else {
+          const oppo = oppoMode();
           state.history.forEach((item, index) => {
-            const chip = document.createElement('span');
+            const chip = document.createElement(oppo ? 'button' : 'span');
+            if (oppo) {
+              chip.type = 'button';
+              chip.addEventListener('click', () => openOppoPicker({ round: index }));
+            }
             chip.className = `round-chip ${item.player === 0 ? 'red' : 'blue'}`;
             chip.style.borderLeftColor = state.colors[item.player];
             const beyInfo = item.bey && item.bey[item.player] ? ` [${item.bey[item.player]}]` : '';
+            let oppoInfo = '';
+            if (oppo) {
+              const oppoBey = item.bey && item.bey[1];
+              oppoInfo = ` · avv. ${oppoBey || '?'}`;
+              if (!oppoBey) chip.classList.add('missing');
+              chip.title = 'Tocca per annotare o correggere il bey avversario';
+            }
             if (item.finish === 'Foul') {
-              chip.textContent = `${index + 1}. FALLO ${state.names[item.offender]} · +1 ${state.names[item.player]}${beyInfo}`;
-              chip.title = `Punto a ${state.names[item.player]} per fallo di ${state.names[item.offender]}`;
+              chip.textContent = `${index + 1}. FALLO ${state.names[item.offender]} · +1 ${state.names[item.player]}${beyInfo}${oppoInfo}`;
+              if (!oppo) chip.title = `Punto a ${state.names[item.player]} per fallo di ${state.names[item.offender]}`;
             } else {
-              chip.textContent = `${index + 1}. ${state.names[item.player]} +${item.points} ${resultLabel(item.finish, item.points)}${beyInfo}`;
-              chip.title = item.finish === 'Simple Score'
+              chip.textContent = `${index + 1}. ${state.names[item.player]} +${item.points} ${resultLabel(item.finish, item.points)}${beyInfo}${oppoInfo}`;
+              if (!oppo) chip.title = item.finish === 'Simple Score'
                 ? `${state.names[item.player]} — ${item.points} ${Number(item.points) === 1 ? 'punto' : 'punti'}`
                 : `${state.names[item.player]} — ${item.finish} (+${item.points})`;
             }
@@ -1126,6 +1195,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
           });
           requestAnimationFrame(() => { history.scrollLeft = history.scrollWidth; });
         }
+        if (winnerDialog.open) renderWinnerRecap();
         save();
       }
 
@@ -1164,10 +1234,57 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         );
       }
 
+      // Avversario "a scoperta": il giocatore 1 ha un deck registrato e il giocatore 2 no.
+      // I bey dell'avversario si annotano man mano che vengono mostrati (uno per round nel primo ciclo).
+      function oppoMode() {
+        return state.decks[0].some(Boolean) && !state.decks[1].some(Boolean);
+      }
+
+      function cleanBeyName(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 50);
+      }
+
+      // Aggiunge un bey al deck scoperto (o riconosce uno già noto, senza distinguere maiuscole). null = deck già completo.
+      function addOppoBey(value) {
+        const name = cleanBeyName(value);
+        if (!name) return null;
+        const known = state.oppoDeck.find(item => item.toLowerCase() === name.toLowerCase());
+        if (known) return known;
+        if (state.oppoDeck.length >= 3) return null;
+        state.oppoDeck.push(name);
+        return name;
+      }
+
+      function renameOppoBey(oldName, value) {
+        const name = cleanBeyName(value);
+        if (!name || name === oldName) return;
+        if (state.oppoDeck.some(item => item !== oldName && item.toLowerCase() === name.toLowerCase())) return;
+        state.oppoDeck = state.oppoDeck.map(item => item === oldName ? name : item);
+        state.history.forEach(item => { if (item.bey && item.bey[1] === oldName) item.bey[1] = name; });
+        if (state.selectedBeys[1] === oldName) state.selectedBeys[1] = name;
+      }
+
+      function attachLongPress(button, action) {
+        let timer = null;
+        let fired = false;
+        const cancel = () => { clearTimeout(timer); timer = null; };
+        button.addEventListener('pointerdown', () => {
+          fired = false;
+          cancel();
+          timer = setTimeout(() => { fired = true; timer = null; action(); }, 650);
+        });
+        ['pointerup', 'pointerleave', 'pointercancel'].forEach(type => button.addEventListener(type, cancel));
+        button.addEventListener('contextmenu', event => event.preventDefault());
+        // Il click che segue una pressione lunga non deve anche selezionare il bey
+        button.addEventListener('click', event => { if (fired) { event.stopImmediatePropagation(); event.preventDefault(); fired = false; } }, true);
+      }
+
       function renderBeySelectors() {
         const winner = winnerIndex();
-        const decks = state.decks.map(deck => deck.filter(Boolean));
-        const rows = Math.max(decks[0].length, decks[1].length);
+        const oppo = oppoMode();
+        const decks = [state.decks[0].filter(Boolean), oppo ? [...state.oppoDeck] : state.decks[1].filter(Boolean)];
+        const canAdd = oppo && decks[1].length < 3;
+        const rows = Math.max(decks[0].length, decks[1].length + (canAdd ? 1 : 0));
         document.body.classList.toggle('has-decks', rows > 0);
 
         [0, 1].forEach(p => {
@@ -1176,21 +1293,38 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
           if (!rows) return;
 
           const deck = decks[p];
+          const discovering = oppo && p === 1;
           const usedThisCycle = beyUsedInCycle(p);
           const available = deck.filter(bey => !usedThisCycle.has(bey));
+          // Con il deck avversario ancora incompleto "l'unico rimasto" non è un bey obbligato
+          const forcedPossible = !discovering || deck.length === 3;
 
           // Auto-seleziona il bey obbligato (unico rimasto nel ciclo)
-          if (available.length === 1 && !state.selectedBeys[p]) {
+          if (forcedPossible && available.length === 1 && !state.selectedBeys[p]) {
             state.selectedBeys[p] = available[0];
             save();
           }
 
           const selected = state.selectedBeys[p];
-          const isForced = available.length === 1;
+          const isForced = forcedPossible && available.length === 1;
 
           // Stesso numero di righe per entrambi i giocatori: gli slot vuoti restano come segnaposto invisibili
           for (let i = 0; i < rows; i++) {
             const bey = deck[i];
+            if (!bey && discovering && canAdd && i === deck.length) {
+              const add = document.createElement('button');
+              add.type = 'button';
+              add.className = 'bey-btn add';
+              const label = document.createElement('span');
+              label.className = 'bey-text';
+              label.textContent = '＋ Bey avversario';
+              add.append(label);
+              add.disabled = winner !== -1;
+              add.title = 'Annota il bey mostrato dall’avversario';
+              add.addEventListener('click', () => openOppoPicker({ live: true }));
+              box.append(add);
+              continue;
+            }
             if (!bey) {
               const placeholder = document.createElement('div');
               placeholder.className = 'bey-btn placeholder';
@@ -1217,8 +1351,170 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
               save();
               render();
             });
+            if (discovering) {
+              attachLongPress(btn, () => {
+                const value = prompt('Correggi il nome del bey avversario:', bey);
+                if (value === null) return;
+                renameOppoBey(bey, value);
+                save();
+                render();
+              });
+            }
             box.append(btn);
           }
+        });
+      }
+
+      // ---- Finestra "Bey avversario": nuovo bey (anche dal selettore) o correzione di un round già giocato ----
+      const oppoDialog = $('#oppoDialog');
+      let oppoTarget = null;
+
+      // Il bersaglio può essere: {live:true} (bey del round in corso), {round:i} (partita corrente),
+      // {game:g, round:i} (partita archiviata: si correggono solo i bey già presenti, non se ne aggiungono)
+      const archivedOf = target => target.game !== undefined ? state.sessionGames[target.game] : null;
+      const roundsOf = target => { const game = archivedOf(target); return game ? (game.history || []) : state.history; };
+      function deckOf(target) {
+        const game = archivedOf(target);
+        if (!game) return state.oppoDeck;
+        return [...new Set(roundsOf(target).map(round => round.bey && round.bey[1]).filter(Boolean))];
+      }
+
+      function openOppoPicker(target) {
+        oppoTarget = target;
+        const retro = target.round !== undefined;
+        const archived = archivedOf(target);
+        const item = retro ? roundsOf(target)[target.round] : null;
+        if (retro && !item) return;
+        const deck = deckOf(target);
+        const current = item && item.bey && item.bey[1] || '';
+        $('#oppoTitle').textContent = retro
+          ? `${archived ? `Partita ${target.game + 1} · ` : ''}Round ${target.round + 1} · bey avversario`
+          : 'Bey avversario';
+        const known = $('#oppoKnown');
+        known.replaceChildren();
+        if (retro) {
+          const rounds = roundsOf(target);
+          const cycleStart = Math.floor(target.round / 3) * 3;
+          deck.forEach(bey => {
+            const other = rounds.findIndex((round, index) => index !== target.round && index >= cycleStart && index < cycleStart + 3 && round.bey && round.bey[1] === bey);
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'utility-btn' + (current === bey ? ' current' : '') + (other !== -1 ? ' dup' : '');
+            button.textContent = other !== -1 ? `${bey} · già nel round ${other + 1}` : bey;
+            button.addEventListener('click', () => applyOppoBey(bey));
+            known.append(button);
+          });
+        }
+        const canAdd = deck.length < 3;
+        $('#oppoForm').hidden = !canAdd;
+        $('#oppoClear').hidden = !retro;
+        $('#oppoHint').textContent = canAdd
+          ? (archived && deck.length ? 'Scegli uno dei bey della partita o scrivine uno nuovo (al massimo 3).' : 'Scrivi il nome del bey avversario: da qui in poi basta un tocco.')
+          : 'Il deck avversario è completo (3 bey): scegline uno o correggi il nome.';
+        // Correzione del nome (es. abbreviazione scritta in fretta → nome completo): vale per tutti i round della partita
+        const rename = $('#oppoRenameForm');
+        rename.hidden = !current;
+        $('#oppoRenameHint').hidden = !current;
+        $('#oppoRenameHint').textContent = current ? `Cambia il nome di «${current}» in tutti i round di questa partita.` : '';
+        $('#oppoRenameInput').value = current;
+        const suggestions = $('#oppoSuggestions');
+        suggestions.replaceChildren();
+        const seen = new Set(deck.map(name => name.toLowerCase()));
+        [...state.sessionGames.flatMap(game => game.history || []), ...state.history].forEach(round => {
+          const name = round.bey && round.bey[1];
+          if (name && !seen.has(name.toLowerCase())) {
+            seen.add(name.toLowerCase());
+            const option = document.createElement('option');
+            option.value = name;
+            suggestions.append(option);
+          }
+        });
+        $('#oppoInput').value = '';
+        oppoDialog.showModal();
+        if (canAdd && !retro) $('#oppoInput').focus();
+      }
+
+      function afterOppoChange() {
+        save();
+        render();
+        if (sessionHistoryDialog.open) renderSessionHistory();
+      }
+
+      function applyOppoBey(name) {
+        if (!oppoTarget) return;
+        const archived = archivedOf(oppoTarget);
+        let value = null;
+        if (name !== null) {
+          if (archived) {
+            const deck = deckOf(oppoTarget);
+            const clean = cleanBeyName(name);
+            value = deck.find(item => item.toLowerCase() === clean.toLowerCase()) || (clean && deck.length < 3 ? clean : null);
+          } else value = addOppoBey(name);
+          if (!value) return;
+        }
+        if (oppoTarget.live) {
+          state.selectedBeys[1] = value;
+        } else {
+          const item = roundsOf(oppoTarget)[oppoTarget.round];
+          if (item) item.bey = [item.bey && item.bey[0] || null, value];
+        }
+        oppoTarget = null;
+        oppoDialog.close();
+        afterOppoChange();
+      }
+
+      // Rinomina il bey del round toccato in tutti i round della stessa partita
+      function renameOppoInTarget(value) {
+        if (!oppoTarget || oppoTarget.round === undefined) return;
+        const rounds = roundsOf(oppoTarget);
+        const oldName = rounds[oppoTarget.round] && rounds[oppoTarget.round].bey && rounds[oppoTarget.round].bey[1];
+        const name = cleanBeyName(value);
+        if (!oldName || !name || name === oldName) return;
+        if (deckOf(oppoTarget).some(item => item !== oldName && item.toLowerCase() === name.toLowerCase())) {
+          $('#oppoRenameHint').textContent = `«${name}» è già un altro bey di questa partita.`;
+          return;
+        }
+        if (archivedOf(oppoTarget)) {
+          rounds.forEach(round => { if (round.bey && round.bey[1] === oldName) round.bey = [round.bey[0] || null, name]; });
+        } else {
+          renameOppoBey(oldName, name);
+        }
+        oppoTarget = null;
+        oppoDialog.close();
+        afterOppoChange();
+      }
+
+      $('#oppoForm').addEventListener('submit', event => {
+        event.preventDefault();
+        applyOppoBey($('#oppoInput').value);
+      });
+      $('#oppoRenameForm').addEventListener('submit', event => {
+        event.preventDefault();
+        renameOppoInTarget($('#oppoRenameInput').value);
+      });
+      $('#oppoClear').addEventListener('click', () => applyOppoBey(null));
+      $('#oppoClose').addEventListener('click', () => oppoDialog.close());
+
+      // Round vinti/giocati senza il bey avversario annotato (solo in modalità avversario a scoperta)
+      function missingOppoRounds() {
+        if (!oppoMode()) return [];
+        return state.history.map((item, index) => (item.bey && item.bey[1]) ? -1 : index).filter(index => index !== -1);
+      }
+
+      function renderWinnerRecap() {
+        const missing = missingOppoRounds();
+        $('#winnerMissing').hidden = !missing.length;
+        if (!missing.length) return;
+        $('#winnerMissingText').textContent = 'Bey avversario da annotare:';
+        const box = $('#winnerMissingBtns');
+        box.replaceChildren();
+        missing.forEach(index => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'utility-btn';
+          button.textContent = `Round ${index + 1}`;
+          button.addEventListener('click', () => openOppoPicker({ round: index }));
+          box.append(button);
         });
       }
 
@@ -1342,6 +1638,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         state.fouls = [0, 0];
         state.repeatReason = '';
         state.selectedBeys = [null, null];
+        state.oppoDeck = [];
         roundActive = false;
         correctionMode = false;
         if (winnerDialog.open) winnerDialog.close();
@@ -1357,7 +1654,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
           scores: [...state.scores],
           history: state.history.map(item => ({ ...item })),
           completed: winner !== -1,
-          winner
+          winner,
+          oppoMode: oppoMode()
         };
       }
 
@@ -1372,6 +1670,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         const hasData = state.sessionGames.some(game => Array.isArray(game.history) && game.history.length) || state.history.length > 0;
         $('#exportCsvBtn').disabled = !hasData;
         $('#exportJsonBtn').disabled = !hasData;
+        const scrollBox = list.closest('.dialog-body');
+        const scrollTop = scrollBox ? scrollBox.scrollTop : 0;
         list.replaceChildren();
         const games = state.sessionGames.map(game => ({ ...game, current: false }));
         if (state.history.length) games.push({ ...gameSnapshot(), current: true });
@@ -1424,7 +1724,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
             row.className = 'session-round';
             row.style.setProperty('--round-color', colors[player] || defaults.colors[player]);
             const bey0 = round.bey?.[0] ? ` [${round.bey[0]}]` : '';
-            const bey1 = round.bey?.[1] ? ` [${round.bey[1]}]` : '';
+            const editable = gameOppoEditable(game);
+            const bey1 = round.bey?.[1] ? ` [${round.bey[1]}]` : (editable ? ' [?]' : '');
             const opponent = 1 - player;
             const oppBey = opponent === 0 ? bey0 : bey1;
             const vsOpponent = oppBey ? ` vs ${names[opponent] || defaults.names[opponent]}${oppBey}` : '';
@@ -1436,12 +1737,28 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
             } else {
               row.textContent = `Round ${roundIndex + 1} · ${names[player] || defaults.names[player]}${player===0?bey0:bey1} · ${resultLabel(round.finish, round.points)} · +${Number(round.points) || 0}${vsOpponent}`;
             }
+            if (editable) {
+              row.classList.add('editable');
+              row.tabIndex = 0;
+              row.setAttribute('role', 'button');
+              row.title = 'Tocca per annotare o correggere il bey avversario';
+              const open = () => openOppoPicker(game.current ? { round: roundIndex } : { game: gameIndex, round: roundIndex });
+              row.addEventListener('click', open);
+              row.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
+            }
             roundList.append(row);
           });
 
           card.append(head, score, roundList);
           list.append(card);
         });
+        if (scrollBox) scrollBox.scrollTop = scrollTop;
+      }
+
+      // Partita con avversario "a scoperta" (flag salvato dalla 1.3.0): il bey avversario si può annotare/correggere dallo storico,
+      // anche se durante la partita non ne era stato annotato nessuno (al massimo 3 bey diversi per partita).
+      function gameOppoEditable(game) {
+        return game.oppoMode === true;
       }
 
       function buildExport() {
@@ -1536,6 +1853,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         state.repeatReason = '';
         hideToast();
         state.sessionGames = [];
+        state.selectedBeys = [null, null];
+        state.oppoDeck = [];
         roundActive = false;
         correctionMode = false;
         if (winnerDialog.open) winnerDialog.close();
@@ -1575,6 +1894,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       function showWinner(player) {
         $('#winnerName').textContent = state.names[player];
         $('#winnerScore').textContent = `Punteggio finale ${state.scores[0]}–${state.scores[1]}`;
+        renderWinnerRecap();
         if (!winnerDialog.open) winnerDialog.showModal();
       }
 
@@ -1903,10 +2223,11 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
       $('#fullscreenBtn').addEventListener('click', toggleFocusMode);
       $('#focusExitBtn').addEventListener('click', toggleFocusMode);
 
-      [settingsDialog, winnerDialog, sessionHistoryDialog].forEach(dialog => dialog.addEventListener('click', event => {
+      [settingsDialog, winnerDialog, sessionHistoryDialog, oppoDialog].forEach(dialog => dialog.addEventListener('click', event => {
         if (event.target === dialog && dialog !== winnerDialog) dialog.close();
       }));
 
+      $('#appVersionNote').textContent = `Scoreboard v${APP_VERSION}`;
       render();
       if (isFirstRun) openSettings();
     })();
